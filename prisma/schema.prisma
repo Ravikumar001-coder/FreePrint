@@ -1,0 +1,531 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ----------------------------------------------------------------------------
+// core SCHEMA
+// ----------------------------------------------------------------------------
+
+model Role {
+  role_id         String            @id @default(uuid())
+  role_name       String            @unique
+  role_slug       String            @unique
+  description     String?
+  is_system_role  Boolean           @default(false)
+  priority_level  Int               @default(0)
+  created_at      DateTime          @default(now())
+  updated_at      DateTime          @default(now()) @updatedAt
+
+  users           User[]
+  permissions     RolePermission[]
+}
+
+model Permission {
+  permission_id   String            @id @default(uuid())
+  permission_name String
+  permission_slug String            @unique
+  module_name     String
+  action_type     String
+  description     String?
+  created_at      DateTime          @default(now())
+
+  roles           RolePermission[]
+
+  @@unique([module_name, action_type, permission_name])
+}
+
+model RolePermission {
+  role_id         String
+  permission_id   String
+  granted_by      String?
+  granted_at      DateTime          @default(now())
+
+  role            Role              @relation(fields: [role_id], references: [role_id], onDelete: Cascade)
+  permission      Permission        @relation(fields: [permission_id], references: [permission_id], onDelete: Cascade)
+
+  @@id([role_id, permission_id])
+}
+
+model User {
+  user_id                 String            @id @default(uuid())
+  email                   String            @unique
+  username                String            @unique
+  password_hash           String?
+  full_name               String?
+  avatar_url              String?
+  phone_number            String?
+  country_code            String?
+  timezone                String            @default("UTC")
+  locale                  String            @default("en-US")
+
+  auth_provider           String            @default("local")
+  oauth_provider_id       String?
+
+  email_verified          Boolean           @default(false)
+  email_verified_at       DateTime?
+  phone_verified          Boolean           @default(false)
+
+  status                  String            @default("pending_verification")
+  is_deleted              Boolean           @default(false)
+
+  last_login_at           DateTime?
+  last_login_ip           String?
+  failed_login_attempts   Int               @default(0)
+  locked_until            DateTime?
+
+  role_id                 String?
+  role                    Role?             @relation(fields: [role_id], references: [role_id])
+  
+  subscription_id         String?
+  credit_balance          Int               @default(50)
+
+  created_at              DateTime          @default(now())
+  updated_at              DateTime          @default(now()) @updatedAt
+  deleted_at              DateTime?
+
+  // Relations
+  pdf_uploads             PdfUpload[]
+  layout_presets          LayoutPreset[]
+  processing_jobs         ProcessingJob[]
+  generated_pdfs          GeneratedPdf[]
+  subscriptions           Subscription[]
+  payments                Payment[]
+  analytics_events        AnalyticsEvent[]
+  sessions                UserSession[]
+  audit_logs              AuditLog[]
+  user_coupon_redemptions UserCouponRedemption[]
+  notifications           Notification[]
+}
+
+// ----------------------------------------------------------------------------
+// commerce SCHEMA
+// ----------------------------------------------------------------------------
+
+model Notification {
+  notification_id String   @id @default(uuid())
+  user_id         String
+  user            User     @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+  title           String
+  message         String
+  coupon_code     String?
+  is_read         Boolean  @default(false)
+  created_at      DateTime @default(now())
+}
+
+model SubscriptionPlan {
+  plan_id                     String         @id @default(uuid())
+  plan_name                   String
+  plan_slug                   String         @unique
+  description                 String?
+  plan_tier                   String
+  price_monthly               Float          @default(0.0)
+  price_annual                Float          @default(0.0)
+  currency_code               String         @default("USD")
+  max_uploads_per_month       Int            @default(5)
+  max_file_size_mb            Int            @default(10)
+  max_pages_per_file          Int            @default(100)
+  storage_limit_gb            Float          @default(0.5)
+  max_generated_pdfs_stored   Int            @default(10)
+  max_batch_size              Int            @default(1)
+  allows_watermark_removal    Boolean        @default(false)
+  allows_custom_presets       Boolean        @default(false)
+  allows_api_access           Boolean        @default(false)
+  allows_priority_processing  Boolean        @default(false)
+  allows_batch_processing     Boolean        @default(false)
+  allows_advanced_compression Boolean        @default(false)
+  allows_analytics_export     Boolean        @default(false)
+  support_level               String         @default("community")
+  is_active                   Boolean        @default(true)
+  sort_order                  Int            @default(0)
+  cost_multiplier             Float          @default(1.0)
+  features_json               String?        // JSON array of strings
+  weekly_credits              Int            @default(50)
+  credit_rollover_limit       Int            @default(0)
+  created_at                  DateTime       @default(now())
+  updated_at                  DateTime       @default(now()) @updatedAt
+
+  subscriptions               Subscription[]
+}
+
+model Coupon {
+  coupon_id       String     @id @default(uuid())
+  code            String     @unique
+  discount_type   String     // "percent", "fixed", "free", "none"
+  discount_value  Float      @default(0)
+  free_credits    Int        @default(0)
+  description     String?
+  usage_limit     Int?
+  used_count      Int        @default(0)
+  assigned_user_id String?   // <--- Added for user-specific vouchers
+  is_active       Boolean    @default(true)
+  created_at      DateTime   @default(now())
+  updated_at      DateTime   @default(now()) @updatedAt
+}
+
+model UserCouponRedemption {
+  id            String   @id @default(uuid())
+  user_id       String
+  coupon_code   String
+  redeemed_at   DateTime @default(now())
+
+  user          User     @relation(fields: [user_id], references: [user_id])
+  
+  @@unique([user_id, coupon_code])
+}
+
+model Subscription {
+  subscription_id           String            @id @default(uuid())
+  user_id                   String
+  user                      User              @relation(fields: [user_id], references: [user_id])
+  plan_id                   String
+  plan                      SubscriptionPlan  @relation(fields: [plan_id], references: [plan_id])
+
+  status                    String
+  billing_cycle             String
+  current_period_start      DateTime?
+  current_period_end        DateTime?
+  trial_start               DateTime?
+  trial_end                 DateTime?
+  cancel_at_period_end      Boolean           @default(false)
+  cancelled_at              DateTime?
+  cancellation_reason       String?
+
+  payment_gateway           String?
+  gateway_subscription_id   String?
+  gateway_customer_id       String?
+
+  uploads_used_this_period  Int               @default(0)
+  uploads_limit_this_period Int               @default(0)
+  storage_used_bytes        BigInt            @default(0)
+  storage_limit_bytes       BigInt            @default(0)
+
+  created_at                DateTime          @default(now())
+  updated_at                DateTime          @default(now()) @updatedAt
+
+  payments                  Payment[]
+}
+
+model Payment {
+  payment_id              String       @id @default(uuid())
+  user_id                 String
+  user                    User         @relation(fields: [user_id], references: [user_id])
+  subscription_id         String?
+  subscription            Subscription? @relation(fields: [subscription_id], references: [subscription_id])
+
+  payment_type            String
+  amount                  Float
+  currency_code           String       @default("USD")
+  amount_in_cents         BigInt?
+  status                  String
+  payment_gateway         String?
+  gateway_payment_id      String?      @unique
+  gateway_invoice_id      String?
+  gateway_charge_id       String?
+
+  payment_method_type     String?
+  payment_method_last4    String?
+  payment_method_brand    String?
+
+  billing_name            String?
+  billing_email           String?
+  billing_address_line1   String?
+  billing_address_line2   String?
+  billing_city            String?
+  billing_state           String?
+  billing_country_code    String?
+  billing_postal_code     String?
+
+  tax_amount              Float?
+  tax_rate                Float?
+  discount_amount         Float?
+  coupon_code             String?
+
+  failure_code            String?
+  failure_message         String?
+
+  refunded_amount         Float?
+  refunded_at             DateTime?
+
+  invoice_url             String?
+  receipt_url             String?
+
+  paid_at                 DateTime?
+  created_at              DateTime     @default(now())
+  updated_at              DateTime     @default(now()) @updatedAt
+}
+
+// ----------------------------------------------------------------------------
+// documents SCHEMA
+// ----------------------------------------------------------------------------
+
+model PdfUpload {
+  upload_id             String         @id @default(uuid())
+  user_id               String
+  user                  User           @relation(fields: [user_id], references: [user_id])
+  original_filename     String
+  stored_filename       String
+  storage_path          String
+  storage_provider      String
+  storage_bucket        String?
+  file_size_bytes       BigInt?
+  file_hash_sha256      String
+  mime_type             String?
+  upload_source         String?
+  upload_status         String
+  virus_scan_status     String?
+  virus_scan_at         DateTime?
+  is_public             Boolean        @default(false)
+  is_deleted            Boolean        @default(false)
+  expires_at            DateTime?
+  created_at            DateTime       @default(now())
+  updated_at            DateTime       @default(now()) @updatedAt
+  deleted_at            DateTime?
+
+  metadata              PdfMetadata?
+  processing_jobs       ProcessingJob[]
+  generated_pdfs        GeneratedPdf[]
+}
+
+model PdfMetadata {
+  metadata_id           String       @id @default(uuid())
+  upload_id             String       @unique
+  upload                PdfUpload    @relation(fields: [upload_id], references: [upload_id], onDelete: Cascade)
+
+  title                 String?
+  author                String?
+  subject               String?
+  keywords              String?      // SQLite doesn't support String[], storing as JSON/CSV
+  creator_application   String?
+  producer              String?
+  pdf_version           String?
+  total_pages           Int?
+  page_width_pt         Float?
+  page_height_pt        Float?
+  page_orientation      String?
+  has_bookmarks         Boolean?
+  has_forms             Boolean?
+  has_annotations       Boolean?
+  is_encrypted          Boolean?
+  is_linearized         Boolean?
+  color_space           String?
+  dpi_detected          Int?
+  language_detected     String?
+  estimated_print_pages Int?
+
+  creation_date         DateTime?
+  modification_date     DateTime?
+  extracted_at          DateTime?
+}
+
+model LayoutPreset {
+  preset_id               String         @id @default(uuid())
+  created_by              String?
+  user                    User?          @relation(fields: [created_by], references: [user_id])
+  
+  preset_name             String
+  preset_slug             String
+  preset_type             String
+  description             String?
+  pages_per_sheet         Int
+  layout_columns          Int?
+  layout_rows             Int?
+  duplex_mode             String?
+  binding_edge            String?
+  page_order              String?
+  margin_top_mm           Float?
+  margin_bottom_mm        Float?
+  margin_left_mm          Float?
+  margin_right_mm         Float?
+  gutter_mm               Float?
+  rotation_degrees        Int?
+  scale_factor            Float?
+  paper_size              String?
+  custom_width_mm         Float?
+  custom_height_mm        Float?
+  show_border             Boolean?
+  show_page_numbers       Boolean?
+  page_number_position    String?
+  watermark_text          String?
+  watermark_opacity       Float?
+  is_booklet_mode         Boolean?
+  front_page_arrangement  String?      // SQLite doesn't support JSONB, storing as String
+  back_page_arrangement   String?      // SQLite doesn't support JSONB, storing as String
+  
+  is_active               Boolean        @default(true)
+  is_deleted              Boolean        @default(false)
+  usage_count             Int            @default(0)
+  created_at              DateTime       @default(now())
+  updated_at              DateTime       @default(now()) @updatedAt
+
+  processing_jobs         ProcessingJob[]
+  generated_pdfs          GeneratedPdf[]
+}
+
+model ProcessingJob {
+  job_id                  String         @id @default(uuid())
+  user_id                 String
+  user                    User           @relation(fields: [user_id], references: [user_id])
+  upload_id               String
+  upload                  PdfUpload      @relation(fields: [upload_id], references: [upload_id])
+  preset_id               String?
+  preset                  LayoutPreset?  @relation(fields: [preset_id], references: [preset_id])
+  generated_pdf_id        String?
+
+  job_type                String
+  job_status              String
+  priority                Int            @default(5)
+  queue_name              String?
+  worker_id               String?
+  attempt_number          Int            @default(1)
+  max_attempts            Int            @default(3)
+  progress_percentage     Float          @default(0.0)
+  progress_message        String?
+  input_parameters        String?        // SQLite JSON string
+  output_parameters       String?        // SQLite JSON string
+  error_code              String?
+  error_message           String?
+  error_stack_trace       String?
+
+  started_at              DateTime?
+  completed_at            DateTime?
+  processing_duration_ms  BigInt?
+  cpu_usage_percent       Float?
+  memory_usage_mb         Float?
+  
+  created_at              DateTime       @default(now())
+  updated_at              DateTime       @default(now()) @updatedAt
+
+  generated_pdf           GeneratedPdf?  @relation(fields: [generated_pdf_id], references: [generated_pdf_id])
+}
+
+model GeneratedPdf {
+  generated_pdf_id        String         @id @default(uuid())
+  upload_id               String
+  upload                  PdfUpload      @relation(fields: [upload_id], references: [upload_id])
+  user_id                 String
+  user                    User           @relation(fields: [user_id], references: [user_id])
+  preset_id               String?
+  preset                  LayoutPreset?  @relation(fields: [preset_id], references: [preset_id])
+  job_id                  String?
+  
+  output_filename         String
+  storage_path            String
+  storage_provider        String
+  file_size_bytes         BigInt?
+  file_hash_sha256        String?
+  total_pages_original    Int?
+  total_pages_output      Int?
+  pages_per_sheet         Int?
+  size_reduction_percent  Float?
+  estimated_paper_saved   Int?
+  estimated_cost_saved    Float?
+  
+  download_count          Int            @default(0)
+  last_downloaded_at      DateTime?
+  download_url            String?
+  download_url_expires_at DateTime?
+  
+  is_deleted              Boolean        @default(false)
+  expires_at              DateTime?
+  created_at              DateTime       @default(now())
+  updated_at              DateTime       @default(now()) @updatedAt
+  deleted_at              DateTime?
+
+  processing_jobs         ProcessingJob[]
+}
+
+// ----------------------------------------------------------------------------
+// analytics SCHEMA
+// ----------------------------------------------------------------------------
+
+model AnalyticsEvent {
+  event_id              String       @id @default(uuid())
+  user_id               String?
+  user                  User?        @relation(fields: [user_id], references: [user_id])
+  session_id            String?
+  session               UserSession? @relation(fields: [session_id], references: [session_id])
+  
+  event_type            String
+  event_category        String
+  event_action          String?
+  event_label           String?
+  event_value           Float?
+  
+  upload_id             String?
+  job_id                String?
+  preset_id             String?
+  
+  page_url              String?
+  referrer_url          String?
+  user_agent            String?
+  ip_address            String?      // INET mapped to String
+  country_code          String?
+  city                  String?
+  device_type           String?
+  browser_name          String?
+  os_name               String?
+  session_duration_ms   BigInt?
+  properties            String?      // JSONB mapped to String
+  
+  created_at            DateTime     @default(now())
+}
+
+// ----------------------------------------------------------------------------
+// core / auth SCHEMA
+// ----------------------------------------------------------------------------
+
+model UserSession {
+  session_id          String       @id @default(uuid())
+  user_id             String
+  user                User         @relation(fields: [user_id], references: [user_id])
+  
+  session_token_hash  String       @unique
+  refresh_token_hash  String?
+  ip_address          String?
+  user_agent          String?
+  device_fingerprint  String?
+  is_active           Boolean      @default(true)
+  
+  expires_at          DateTime?
+  last_activity_at    DateTime?
+  created_at          DateTime     @default(now())
+  revoked_at          DateTime?
+
+  analytics_events    AnalyticsEvent[]
+  audit_logs          AuditLog[]
+}
+
+model AuditLog {
+  audit_id            String       @id @default(uuid())
+  user_id             String?
+  user                User?        @relation(fields: [user_id], references: [user_id])
+  session_id          String?
+  session             UserSession? @relation(fields: [session_id], references: [session_id])
+  
+  action_type         String
+  action_category     String
+  table_name          String?
+  record_id           String?
+  old_values          String?      // JSONB
+  new_values          String?      // JSONB
+  changed_fields      String?      // String array
+  
+  ip_address          String?
+  user_agent          String?
+  request_id          String?
+  api_endpoint        String?
+  http_method         String?
+  http_status_code    Int?
+  
+  severity            String
+  is_suspicious       Boolean      @default(false)
+  risk_score          Int?
+  notes               String?
+  
+  created_at          DateTime     @default(now())
+}

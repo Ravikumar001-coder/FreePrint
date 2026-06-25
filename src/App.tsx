@@ -21,7 +21,9 @@ import {
   Check,
   X,
   User,
-  Menu
+  Menu,
+  CircleUser,
+  ChevronDown
 } from "lucide-react";
 import { PDFDocument, rgb, degrees, StandardFonts } from "pdf-lib";
 import { ImpositionConfig, PresetMode, PDFMetadata, SubscriptionPlan, CouponCode } from "./types";
@@ -720,20 +722,27 @@ export default function App() {
         </div>
 
         {/* Mobile View Toggle */}
-        <div className="flex sm:hidden items-center gap-3">
+        <div className="flex sm:hidden items-center gap-2">
           {currentUser && authToken && <NotificationsPanel authToken={authToken} />}
-          <button 
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} 
-            className="p-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-600 cursor-pointer transition-colors"
-          >
-            {isMobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
-          </button>
+          {currentUser ? (
+            <button 
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} 
+              className="flex items-center gap-1 p-1.5 bg-slate-100 hover:bg-slate-200 rounded-full text-slate-700 cursor-pointer transition-colors border border-slate-200/60"
+            >
+              <CircleUser size={18} className="text-indigo-600" />
+              {isMobileMenuOpen ? <X size={14} className="text-slate-500 mr-0.5" /> : <ChevronDown size={14} className="text-slate-500 mr-0.5" />}
+            </button>
+          ) : (
+            <button onClick={() => setAuthModalOpen(true)} className="text-[10px] font-bold bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-full cursor-pointer">
+              Login
+            </button>
+          )}
         </div>
       </header>
 
       {/* Mobile Dropdown Menu */}
       {isMobileMenuOpen && (
-        <div className="sm:hidden bg-white border-b border-slate-200 p-4 flex flex-col gap-3 shadow-md z-20 absolute w-full left-0 top-[56px] animate-fade-in">
+        <div className="sm:hidden bg-white border-b border-slate-200 p-4 flex flex-col gap-3 shadow-xl z-50 absolute w-full left-0 top-[56px] animate-fade-in">
           {currentUser ? (
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-2 border-b border-slate-100 pb-2">

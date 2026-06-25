@@ -157,6 +157,11 @@ export default function AdminPanel({
   const [usersLoading, setUsersLoading] = useState(false);
   const [usersError, setUsersError] = useState<string | null>(null);
   const [userSearch, setUserSearch] = useState('');
+  const [userRoleFilter, setUserRoleFilter] = useState('all');
+  const [userPlanFilter, setUserPlanFilter] = useState('all');
+  const [userStatusFilter, setUserStatusFilter] = useState('all');
+  const [userDateStart, setUserDateStart] = useState('');
+  const [userDateEnd, setUserDateEnd] = useState('');
   const [userActionLoading, setUserActionLoading] = useState<string | null>(null);
   const [confirmModal, setConfirmModal] = useState<{ userId: string; action: string; label: string } | null>(null);
   const [promoteRoleSlug, setPromoteRoleSlug] = useState<{ [userId: string]: string }>({});
@@ -299,11 +304,30 @@ export default function AdminPanel({
     }
   };
 
-  const filteredUsers = users.filter(u =>
-    u.email?.toLowerCase().includes(userSearch.toLowerCase()) ||
-    u.full_name?.toLowerCase().includes(userSearch.toLowerCase()) ||
-    u.username?.toLowerCase().includes(userSearch.toLowerCase())
-  );
+  const filteredUsers = users.filter(u => {
+    const matchesSearch = u.email?.toLowerCase().includes(userSearch.toLowerCase()) ||
+                          u.full_name?.toLowerCase().includes(userSearch.toLowerCase()) ||
+                          u.username?.toLowerCase().includes(userSearch.toLowerCase());
+    
+    const matchesRole = userRoleFilter === 'all' || (u.role?.role_slug || 'student') === userRoleFilter;
+    const matchesPlan = userPlanFilter === 'all' || (u.subscription_id || 'plan-free') === userPlanFilter;
+    const matchesStatus = userStatusFilter === 'all' || u.status === userStatusFilter;
+    
+    let matchesDate = true;
+    if (userDateStart || userDateEnd) {
+      const uDate = new Date(u.created_at);
+      if (userDateStart) {
+        matchesDate = matchesDate && uDate >= new Date(userDateStart);
+      }
+      if (userDateEnd) {
+        const endDate = new Date(userDateEnd);
+        endDate.setDate(endDate.getDate() + 1);
+        matchesDate = matchesDate && uDate < endDate;
+      }
+    }
+
+    return matchesSearch && matchesRole && matchesPlan && matchesStatus && matchesDate;
+  });
 
   // ── AUDIT LOG STATE ────────────────────────────────────────────────────────
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
@@ -658,38 +682,6 @@ export default function AdminPanel({
         ) : (
           <div className="text-[10px] text-slate-500 italic">Fetching stats from server or awaiting admin login...</div>
         )}
-      </div>
-
-      {/* SIMULATED ACTIVE CUSTOMER TRADING POST */}
-      <div className="bg-white rounded-xl border border-indigo-100 p-5 shadow-xs grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
-        <div>
-          <h3 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-            <Crown size={14} className="text-amber-500 fill-amber-500" />
-            Switch Active Student Profile Subscription
-          </h3>
-          <p className="text-[10px] text-slate-500 mt-0.5">
-            Select which plan your mock screen profile is on to test print limitations and discount rates.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap gap-2 justify-start md:justify-end">
-          {subscriptionPlans.map(plan => (
-            <button
-              key={plan.id}
-              onClick={() => {
-                setCurrentPlanId(plan.id);
-                triggerToast(`Active student plan updated to "${plan.name}".`);
-              }}
-              className={`p-2.5 px-4.5 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer ${
-                plan.id === currentPlanId
-                  ? "bg-indigo-650 bg-indigo-600 text-white shadow-md ring-2 ring-indigo-505/20 scale-95"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-800"
-              }`}
-            >
-              {plan.name}
-            </button>
-          ))}
-        </div>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
@@ -1545,6 +1537,60 @@ export default function AdminPanel({
             </div>
             <button onClick={fetchUsers} className="p-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer" title="Refresh">
               <RefreshCw size={12} className="text-slate-500" />
+            </button>
+          </div>
+        </div>
+
+        {/* Filters */}
+        <div className="flex flex-wrap gap-3 items-center bg-slate-50 p-3 rounded-xl border border-slate-100 mb-2">
+          <div className="flex flex-col gap-1">
+            <span className="text-[9px] font-bold uppercase text-slate-500">Role</span>
+            <select value={userRoleFilter} onChange={e => setUserRoleFilter(e.target.value)} className="text-xs border border-slate-200 rounded p-1.5 focus:ring-1 focus:ring-indigo-500 bg-white cursor-pointer">
+              <option value="all">All Roles</option>
+              <option value="student">Student</option>
+              <option value="educator">Educator</option>
+              <option value="admin">Admin</option>
+              <option value="superadmin">Superadmin</option>
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-[9px] font-bold uppercase text-slate-500">Plan</span>
+            <select value={userPlanFilter} onChange={e => setUserPlanFilter(e.target.value)} className="text-xs border border-slate-200 rounded p-1.5 focus:ring-1 focus:ring-indigo-500 bg-white cursor-pointer">
+              <option value="all">All Plans</option>
+              <option value="plan-free">Free</option>
+              {subscriptionPlans.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-[9px] font-bold uppercase text-slate-500">Status</span>
+            <select value={userStatusFilter} onChange={e => setUserStatusFilter(e.target.value)} className="text-xs border border-slate-200 rounded p-1.5 focus:ring-1 focus:ring-indigo-500 bg-white cursor-pointer">
+              <option value="all">All Statuses</option>
+              <option value="active">Active</option>
+              <option value="suspended">Suspended</option>
+              <option value="banned">Banned</option>
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-[9px] font-bold uppercase text-slate-500">Joined After</span>
+            <input type="date" value={userDateStart} onChange={e => setUserDateStart(e.target.value)} className="text-xs border border-slate-200 rounded p-1.5 focus:ring-1 focus:ring-indigo-500 bg-white cursor-pointer" />
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-[9px] font-bold uppercase text-slate-500">Joined Before</span>
+            <input type="date" value={userDateEnd} onChange={e => setUserDateEnd(e.target.value)} className="text-xs border border-slate-200 rounded p-1.5 focus:ring-1 focus:ring-indigo-500 bg-white cursor-pointer" />
+          </div>
+          <div className="flex flex-col gap-1 justify-end ml-auto">
+            <button 
+              onClick={() => {
+                setUserRoleFilter('all');
+                setUserPlanFilter('all');
+                setUserStatusFilter('all');
+                setUserDateStart('');
+                setUserDateEnd('');
+                setUserSearch('');
+              }}
+              className="text-[10px] bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+            >
+              Clear Filters
             </button>
           </div>
         </div>

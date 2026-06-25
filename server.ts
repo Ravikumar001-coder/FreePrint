@@ -598,7 +598,7 @@ app.post('/api/auth/reset-password', async (req, res) => {
 app.get('/api/admin/users', authenticateToken, requireRole('admin'), async (req: any, res: any) => {
   try {
     const users = await prisma.user.findMany({
-      select: { user_id: true, email: true, username: true, full_name: true, status: true, created_at: true, role: true }
+      select: { user_id: true, email: true, username: true, full_name: true, status: true, created_at: true, role: true, subscription_id: true }
     });
     res.json(users);
   } catch (error) {
@@ -1481,6 +1481,18 @@ app.post('/api/subscriptions/select', authenticateToken, async (req: any, res: a
       return res.status(404).json({ error: "Subscription plan not found or inactive" });
     }
 
+    const user = await prisma.user.findUnique({ where: { user_id: req.user.id }, include: { role: true } });
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    const isAdmin = user.role?.role_slug === 'admin' || user.role?.role_slug === 'superadmin';
+    if (!isAdmin && user.subscription_id && user.subscription_id !== 'plan-free') {
+      return res.status(403).json({ error: "Your plan is managed by an administrator. Please contact support to change it." });
+    }
+
+    if (plan.price_monthly > 0 && !coupon_code) {
+      return res.status(402).json({ error: "Payment required. Stripe integration is pending. Please use a voucher code." });
+    }
+
     let discountApplied = false;
 
     if (coupon_code) {
@@ -1518,7 +1530,7 @@ app.post('/api/subscriptions/select', authenticateToken, async (req: any, res: a
 
     const updatedUser = await prisma.user.update({
       where: { user_id: req.user.id },
-      data: { plan_id: plan.plan_id }
+      data: { subscription_id: plan.plan_id }
     });
 
     await writeAuditLog({
@@ -1527,7 +1539,7 @@ app.post('/api/subscriptions/select', authenticateToken, async (req: any, res: a
       action_category: 'commerce',
       table_name: 'User',
       record_id: req.user.id,
-      new_values: { plan_id: plan.plan_id, coupon_used: coupon_code || null },
+      new_values: { subscription_id: plan.plan_id, coupon_used: coupon_code || null },
       severity: 'info',
       api_endpoint: '/api/subscriptions/select',
       http_method: 'POST',
@@ -1773,41 +1785,7 @@ app.patch('/api/users/me/notifications/:id/read', authenticateToken, async (req:
 // SUBSCRIPTIONS (User facing)
 // ════════════════════════════════════════════════════════════════════════════
 
-app.post('/api/subscriptions/select', authenticateToken, async (req: any, res: any) => {
-  try {
-    const { plan_id } = req.body;
-    
-    const plan = await prisma.subscriptionPlan.findUnique({ where: { plan_slug: plan_id } });
-    if (!plan) return res.status(404).json({ error: "Plan not found" });
 
-    // Cancel old subscriptions
-    await prisma.subscription.updateMany({
-      where: { user_id: req.user.id, status: 'active' },
-      data: { status: 'cancelled', cancelled_at: new Date() }
-    });
-
-    // Create new subscription
-    const sub = await prisma.subscription.create({
-      data: {
-        user_id: req.user.id,
-        plan_id: plan.plan_id,
-        status: 'active',
-        billing_cycle: plan.price_monthly > 0 ? 'monthly' : 'lifetime',
-        current_period_start: new Date(),
-        current_period_end: plan.price_monthly > 0 ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) : null
-      }
-    });
-
-    await prisma.user.update({
-      where: { user_id: req.user.id },
-      data: { subscription_id: plan.plan_id }
-    });
-
-    res.json({ success: true, subscription: sub });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
 
 app.post('/api/webhooks/stripe', async (req: any, res: any) => {
   try {

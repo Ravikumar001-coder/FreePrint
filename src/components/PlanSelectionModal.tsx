@@ -155,12 +155,7 @@ export default function PlanSelectionModal({
                           <span>Remove Watermarks</span>
                         </li>
                       )}
-                      {plan.allowsBatchProcessing && (
-                        <li className="flex items-start gap-2.5 text-sm text-slate-600">
-                          <Check size={16} className="text-indigo-500 mt-0.5 shrink-0" />
-                          <span>Batch Processing (Up to {plan.maxBatchSize})</span>
-                        </li>
-                      )}
+
                     </ul>
 
                     <button

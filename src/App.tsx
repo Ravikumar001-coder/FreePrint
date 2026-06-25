@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { 
   Printer, 
   Sparkles, 
@@ -106,6 +106,24 @@ export default function App() {
   });
   const [authToken, setAuthToken] = useState<string | null>(() => localStorage.getItem("imposer_token") || null);
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
+
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
+  const mobileMenuToggleRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        isMobileMenuOpen &&
+        mobileMenuRef.current &&
+        !mobileMenuRef.current.contains(event.target as Node) &&
+        (!mobileMenuToggleRef.current || !mobileMenuToggleRef.current.contains(event.target as Node))
+      ) {
+        setIsMobileMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isMobileMenuOpen]);
 
   // Helper: check if logged-in user is admin or superadmin
   const isAdmin = (user: any) => {
@@ -726,6 +744,7 @@ export default function App() {
           {currentUser && authToken && <NotificationsPanel authToken={authToken} />}
           {currentUser ? (
             <button 
+              ref={mobileMenuToggleRef}
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} 
               className="flex items-center gap-1 p-1.5 bg-slate-100 hover:bg-slate-200 rounded-full text-slate-700 cursor-pointer transition-colors border border-slate-200/60"
             >
@@ -742,7 +761,7 @@ export default function App() {
 
       {/* Mobile Dropdown Menu */}
       {isMobileMenuOpen && (
-        <div className="sm:hidden bg-white border-b border-slate-200 p-4 flex flex-col gap-3 shadow-xl z-50 absolute w-full left-0 top-[56px] animate-fade-in">
+        <div ref={mobileMenuRef} className="sm:hidden bg-white border-b border-slate-200 p-4 flex flex-col gap-3 shadow-xl z-50 absolute w-full left-0 top-[56px] animate-fade-in">
           {currentUser ? (
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-2 border-b border-slate-100 pb-2">

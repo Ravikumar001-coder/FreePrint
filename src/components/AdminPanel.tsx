@@ -160,6 +160,7 @@ export default function AdminPanel({
   const [userActionLoading, setUserActionLoading] = useState<string | null>(null);
   const [confirmModal, setConfirmModal] = useState<{ userId: string; action: string; label: string } | null>(null);
   const [promoteRoleSlug, setPromoteRoleSlug] = useState<{ [userId: string]: string }>({});
+  const [promoteSubscriptionId, setPromoteSubscriptionId] = useState<{ [userId: string]: string }>({});
   const [sendCouponModal, setSendCouponModal] = useState<{ 
     userId: string; 
     userEmail: string; 
@@ -234,6 +235,28 @@ export default function AdminPanel({
       }
     } catch (err) {
       triggerToast('Network error. Could not update user role.');
+    } finally {
+      setUserActionLoading(null);
+    }
+  };
+
+  const handleUserSubscriptionChange = async (userId: string, subscription_id: string) => {
+    setUserActionLoading(userId);
+    try {
+      const res = await fetch(`/api/admin/users/${userId}/subscription`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+        body: JSON.stringify({ subscription_id })
+      });
+      if (res.ok) {
+        triggerToast(`User subscription updated successfully.`);
+        await fetchUsers();
+      } else {
+        const d = await res.json();
+        triggerToast(`Error: ${d.error || 'Failed to update subscription.'}`);
+      }
+    } catch (err) {
+      triggerToast('Network error. Could not update user subscription.');
     } finally {
       setUserActionLoading(null);
     }
@@ -1560,27 +1583,53 @@ export default function AdminPanel({
                 </div>
 
                 <div className="bg-slate-50 rounded-xl p-3 mt-1 flex flex-col gap-3 border border-slate-100">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Change Role</span>
-                    <div className="flex items-center gap-1">
-                      <select
-                        value={promoteRoleSlug[u.user_id] || u.role?.role_slug || 'student'}
-                        onChange={e => setPromoteRoleSlug(prev => ({ ...prev, [u.user_id]: e.target.value }))}
-                        className="text-[10px] border border-slate-200 rounded-lg p-1 bg-white cursor-pointer focus:ring-1 focus:ring-indigo-500"
-                      >
-                        <option value="student">Student</option>
-                        <option value="educator">Educator</option>
-                        <option value="admin">Admin</option>
-                        <option value="superadmin">Superadmin</option>
-                      </select>
-                      <button
-                        onClick={() => handleUserRoleChange(u.user_id, promoteRoleSlug[u.user_id] || 'student')}
-                        disabled={userActionLoading === u.user_id}
-                        className="text-[10px] bg-purple-100 hover:bg-purple-200 text-purple-700 font-bold p-1 rounded-lg cursor-pointer transition-colors disabled:opacity-50"
-                        title="Apply role change"
-                      >
-                        <UserCog size={14} />
-                      </button>
+                  <div className="flex flex-col gap-2 border-b border-slate-100 pb-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Change Role</span>
+                      <div className="flex items-center gap-1">
+                        <select
+                          value={promoteRoleSlug[u.user_id] || u.role?.role_slug || 'student'}
+                          onChange={e => setPromoteRoleSlug(prev => ({ ...prev, [u.user_id]: e.target.value }))}
+                          className="text-[10px] border border-slate-200 rounded-lg p-1 bg-white cursor-pointer focus:ring-1 focus:ring-indigo-500"
+                        >
+                          <option value="student">Student</option>
+                          <option value="educator">Educator</option>
+                          <option value="admin">Admin</option>
+                          <option value="superadmin">Superadmin</option>
+                        </select>
+                        <button
+                          onClick={() => handleUserRoleChange(u.user_id, promoteRoleSlug[u.user_id] || 'student')}
+                          disabled={userActionLoading === u.user_id}
+                          className="text-[10px] bg-purple-100 hover:bg-purple-200 text-purple-700 font-bold p-1 rounded-lg cursor-pointer transition-colors disabled:opacity-50"
+                          title="Apply role change"
+                        >
+                          <UserCog size={14} />
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center justify-between gap-2 mt-1">
+                      <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Change Plan</span>
+                      <div className="flex items-center gap-1">
+                        <select
+                          value={promoteSubscriptionId[u.user_id] || u.subscription_id || 'plan-free'}
+                          onChange={e => setPromoteSubscriptionId(prev => ({ ...prev, [u.user_id]: e.target.value }))}
+                          className="text-[10px] border border-slate-200 rounded-lg p-1 bg-white cursor-pointer focus:ring-1 focus:ring-indigo-500 max-w-[110px]"
+                        >
+                          <option value="plan-free" disabled>Select plan...</option>
+                          {subscriptionPlans.map(p => (
+                            <option key={p.id} value={p.id}>{p.name}</option>
+                          ))}
+                        </select>
+                        <button
+                          onClick={() => handleUserSubscriptionChange(u.user_id, promoteSubscriptionId[u.user_id] || u.subscription_id || 'plan-free')}
+                          disabled={userActionLoading === u.user_id}
+                          className="text-[10px] bg-indigo-100 hover:bg-indigo-200 text-indigo-700 font-bold p-1 rounded-lg cursor-pointer transition-colors disabled:opacity-50"
+                          title="Apply plan change"
+                        >
+                          <Crown size={14} />
+                        </button>
+                      </div>
                     </div>
                   </div>
 

@@ -19,7 +19,9 @@ import {
   Crown,
   Ticket,
   Check,
-  X
+  X,
+  User,
+  Menu
 } from "lucide-react";
 import { PDFDocument, rgb, degrees, StandardFonts } from "pdf-lib";
 import { ImpositionConfig, PresetMode, PDFMetadata, SubscriptionPlan, CouponCode } from "./types";
@@ -91,6 +93,7 @@ export default function App() {
 
   // AUTH STATE
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(() => {
     try {
       const saved = localStorage.getItem("imposer_user");
@@ -659,7 +662,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-50 text-gray-800 flex flex-col antialiased">
       {/* 1. BRAND HEADER */}
-      <header className="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0 z-10 shadow-xs" id="brand_header">
+      <header className="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-4 sm:px-6 shrink-0 z-30 shadow-xs" id="brand_header">
         <div className="flex items-center gap-3">
           <div className="bg-indigo-600 w-8 h-8 rounded flex items-center justify-center text-white">
             <Printer size={18} className="animate-pulse" />
@@ -674,19 +677,20 @@ export default function App() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        {/* Desktop View Action Panel */}
+        <div className="hidden sm:flex items-center gap-3 w-auto justify-end">
           {currentUser ? (
             <div className="flex items-center gap-2">
               <span className="text-xs text-slate-600 font-medium">Hi, {currentUser.name || currentUser.full_name || currentUser.username}</span>
               {isAdmin(currentUser) && (
-                <span className="hidden sm:inline-flex items-center gap-1 text-[9px] bg-amber-100 text-amber-700 font-extrabold uppercase px-2 py-0.5 rounded-full font-mono tracking-wider">
+                <span className="inline-flex items-center gap-1 text-[9px] bg-amber-100 text-amber-700 font-extrabold uppercase px-2 py-0.5 rounded-full font-mono tracking-wider">
                   <ShieldAlert size={9} />
                   ADMIN
                 </span>
               )}
               {currentUser && (
-                <span className="hidden md:inline-flex text-[10px] text-amber-700 bg-amber-100 px-2 py-0.5 rounded font-bold">
-                  ⚡ {currentUser?.credit_balance || 0} Credits Remaining
+                <span className="inline-flex text-[10px] text-amber-700 bg-amber-100 px-2 py-0.5 rounded font-bold">
+                  ⚡ {currentUser?.credit_balance || 0} Credits
                 </span>
               )}
               {authToken && <NotificationsPanel authToken={authToken} />}
@@ -695,8 +699,8 @@ export default function App() {
           ) : (
             <button onClick={() => setAuthModalOpen(true)} className="text-xs font-bold text-indigo-600 hover:text-indigo-800 cursor-pointer">Login</button>
           )}
-          <div className="hidden sm:flex items-center gap-2 px-3 py-1 bg-slate-100 rounded-full text-[10px] font-semibold text-slate-600 font-mono">
-            Active Tier: <span className="text-indigo-600 font-bold">{(subscriptionPlans.find(p => p.id === currentPlanId)?.name || "Free").toUpperCase()}</span>
+          <div className="flex items-center gap-2 px-3 py-1 bg-slate-100 rounded-full text-[10px] font-semibold text-slate-600 font-mono">
+            Tier: <span className="text-indigo-600 font-bold">{(subscriptionPlans.find(p => p.id === currentPlanId)?.name || "Free").toUpperCase()}</span>
             {currentUser && (
               <button 
                 onClick={() => setIsPlanModalOpen(true)}
@@ -706,7 +710,6 @@ export default function App() {
               </button>
             )}
           </div>
-
           <button
             onClick={handleReset}
             className="flex items-center gap-1.5 text-xs text-slate-600 hover:text-slate-950 transition-all bg-slate-100 p-1.5 px-3 rounded-lg border border-slate-200 cursor-pointer text-[11px]"
@@ -715,11 +718,68 @@ export default function App() {
             Reset
           </button>
         </div>
+
+        {/* Mobile View Toggle */}
+        <div className="flex sm:hidden items-center gap-3">
+          {currentUser && authToken && <NotificationsPanel authToken={authToken} />}
+          <button 
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} 
+            className="p-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-600 cursor-pointer transition-colors"
+          >
+            {isMobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
+          </button>
+        </div>
       </header>
+
+      {/* Mobile Dropdown Menu */}
+      {isMobileMenuOpen && (
+        <div className="sm:hidden bg-white border-b border-slate-200 p-4 flex flex-col gap-3 shadow-md z-20 absolute w-full left-0 top-[56px] animate-fade-in">
+          {currentUser ? (
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
+                <div className="bg-indigo-100 p-2 rounded-full text-indigo-700"><User size={16}/></div>
+                <div className="flex flex-col">
+                  <span className="text-sm text-slate-800 font-bold">{currentUser.name || currentUser.full_name || currentUser.username}</span>
+                  {isAdmin(currentUser) && (
+                    <span className="text-[9px] text-amber-700 font-bold uppercase tracking-wider mt-0.5">Administrator</span>
+                  )}
+                </div>
+              </div>
+              <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg">
+                 <span className="text-xs font-bold text-slate-600">Credits Remaining</span>
+                 <span className="text-xs font-bold text-amber-700">⚡ {currentUser?.credit_balance || 0}</span>
+              </div>
+              <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg">
+                 <span className="text-xs font-bold text-slate-600">Current Plan</span>
+                 <div className="flex items-center gap-2">
+                   <span className="text-xs font-bold text-indigo-600">{(subscriptionPlans.find(p => p.id === currentPlanId)?.name || "Free").toUpperCase()}</span>
+                   <button onClick={() => {setIsMobileMenuOpen(false); setIsPlanModalOpen(true);}} className="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-1 rounded-md cursor-pointer font-bold">Change</button>
+                 </div>
+              </div>
+              <div className="flex gap-2 mt-2">
+                <button
+                  onClick={() => { setIsMobileMenuOpen(false); handleReset(); }}
+                  className="flex-1 flex justify-center items-center gap-1.5 text-xs text-slate-600 hover:text-slate-900 bg-slate-100 p-2.5 rounded-lg font-bold"
+                >
+                  <RotateCcw size={14} /> Reset UI
+                </button>
+                <button 
+                  onClick={() => { setIsMobileMenuOpen(false); setCurrentUser(null); setAuthToken(null); setViewMode('print-designer'); }} 
+                  className="flex-1 text-xs text-red-600 hover:bg-red-50 bg-white border border-red-200 p-2.5 rounded-lg font-bold uppercase cursor-pointer text-center"
+                >
+                  Logout
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button onClick={() => {setIsMobileMenuOpen(false); setAuthModalOpen(true);}} className="w-full bg-indigo-600 text-white text-sm font-bold p-2.5 rounded-lg text-center">Login to your account</button>
+          )}
+        </div>
+      )}
 
       {/* 2. TAB TOGGLE NAVIGATION STRIP */}
       <div className="bg-slate-100 border-b border-slate-200/60 p-2.5 flex justify-center sticky top-0 z-20 shadow-xs">
-        <div className="bg-white p-1 rounded-xl shadow-xs border border-slate-200 flex gap-1 items-center">
+        <div className="bg-white p-1 rounded-xl shadow-xs border border-slate-200 flex flex-wrap gap-1 items-center justify-center">
           <button
             onClick={() => setViewMode("print-designer")}
             className={`p-2 px-5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${

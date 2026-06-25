@@ -4,6 +4,7 @@
  */
 
 import React, { useRef, useState } from "react";
+import { PDFDocument } from 'pdf-lib';
 import { 
   FileUp, 
   Settings, 
@@ -52,27 +53,87 @@ export default function ControlPanel({
     }
   };
 
+  const processUploadedFile = async (file: File) => {
+    setErrorText(null);
+    const fileNameLower = file.name.toLowerCase();
+    
+    if (file.type === "application/pdf" || fileNameLower.endsWith(".pdf")) {
+      return await onUploadPDF(file);
+    }
+    
+    if (file.type.startsWith("image/") || fileNameLower.match(/\.(jpg|jpeg|png)$/)) {
+      try {
+        const imageBytes = await file.arrayBuffer();
+        const pdfDoc = await PDFDocument.create();
+        let image;
+        if (fileNameLower.endsWith('.png')) {
+          image = await pdfDoc.embedPng(imageBytes);
+        } else {
+          image = await pdfDoc.embedJpg(imageBytes);
+        }
+        
+        const page = pdfDoc.addPage([image.width, image.height]);
+        page.drawImage(image, {
+          x: 0,
+          y: 0,
+          width: image.width,
+          height: image.height,
+        });
+        
+        const pdfBytes = await pdfDoc.save();
+        const pdfFile = new File([pdfBytes], file.name.replace(/\.[^/.]+$/, "") + ".pdf", { type: "application/pdf" });
+        return await onUploadPDF(pdfFile);
+      } catch (err) {
+        setErrorText("Failed to convert image to PDF.");
+        return;
+      }
+    }
+    
+    if (fileNameLower.match(/\.(docx|pptx)$/)) {
+      try {
+        setErrorText("Converting document to PDF... Please wait.");
+        
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        const token = localStorage.getItem('token');
+        const res = await fetch('http://localhost:3000/api/convert', {
+          method: 'POST',
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+          body: formData
+        });
+        
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}));
+          throw new Error(errorData.error || "Failed to convert document.");
+        }
+        
+        const pdfBlob = await res.blob();
+        const pdfFile = new File([pdfBlob], file.name.replace(/\.[^/.]+$/, "") + ".pdf", { type: "application/pdf" });
+        setErrorText(null);
+        return await onUploadPDF(pdfFile);
+      } catch (err: any) {
+        setErrorText(err.message || "An error occurred during conversion.");
+        return;
+      }
+    }
+
+    setErrorText("Unsupported file format. Please upload a PDF or Image.");
+  };
+
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
 
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const file = e.dataTransfer.files[0];
-      if (file.type === "application/pdf" || file.name.endsWith(".pdf")) {
-        setErrorText(null);
-        await onUploadPDF(file);
-      } else {
-        setErrorText("Unsupported file format. Please upload a valid PDF document.");
-      }
+      await processUploadedFile(e.dataTransfer.files[0]);
     }
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setErrorText(null);
-      await onUploadPDF(file);
+      await processUploadedFile(e.target.files[0]);
     }
   };
 
@@ -141,14 +202,14 @@ export default function ControlPanel({
           <input
             ref={fileInputRef}
             type="file"
-            accept=".pdf"
+            accept=".pdf,.jpg,.jpeg,.png,.docx,.pptx"
             className="hidden"
             onChange={handleFileChange}
           />
 
           <div className="flex flex-col items-center gap-2">
             <div className="p-3 bg-white rounded-full shadow-sm text-gray-500 hover:text-indigo-500 transition-colors">
-              <FileText size={24} />
+              <FileUp size={24} />
             </div>
             {loading ? (
               <div className="w-full max-w-xs mt-2">
@@ -165,10 +226,12 @@ export default function ControlPanel({
               </div>
             ) : (
               <>
-                <p className="text-xs font-medium text-gray-700">
-                  Drag & drop PDF notes sheet, or click to browse
+                <p className="text-sm font-semibold text-gray-900 mb-1">
+                  Click to select or drag and drop
                 </p>
-                <p className="text-[10px] text-gray-400">Supports standard textbook notes, lectures and slide decks</p>
+                <p className="text-[10px] text-gray-500">
+                  PDF, JPG, PNG, DOCX, PPTX
+                </p>
               </>
             )}
           </div>

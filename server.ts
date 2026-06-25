@@ -31,6 +31,8 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import crypto from "crypto";
 import { PrismaClient } from "@prisma/client";
+import multer from "multer";
+import CloudConvert from "cloudconvert";
 
 const prisma = new PrismaClient();
 
@@ -39,6 +41,9 @@ dotenv.config();
 
 const app = express();
 const PORT = 3000;
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 30 * 1024 * 1024 } });
+const cloudConvert = process.env.CLOUDCONVERT_API_KEY ? new CloudConvert(process.env.CLOUDCONVERT_API_KEY) : null;
 
 // ── Security Headers ────────────────────────────────────────────────────────
 app.use(express.json({ limit: '30mb' })); // allow body up to 30MB for metadata
@@ -685,43 +690,6 @@ app.patch('/api/admin/users/:id/status', authenticateToken, requireRole('admin')
 // JOB PROCESSING ROUTES
 // ════════════════════════════════════════════════════════════════════════════
 
-// POST /api/jobs/track — track job processing and deduct credits
-app.post('/api/jobs/track', authenticateToken, async (req: any, res: any) => {
-  try {
-    const { pages_processed, preset, is_unwatermarked, is_ai_requested } = req.body;
-    
-    if (typeof pages_processed !== 'number') {
-      return res.status(400).json({ error: "pages_processed is required and must be a number" });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { user_id: req.user.id }
-    });
-
-    if (!user) return res.status(404).json({ error: "User not found" });
-
-    // Calculate cost: 1 page = 1 credit. Unwatermarked = +50 credits. AI = +100 credits.
-    let cost = pages_processed;
-    if (is_unwatermarked) cost += 50;
-    if (is_ai_requested) cost += 100;
-
-    if (user.credit_balance < cost) {
-      return res.status(402).json({ error: `Insufficient credits. Job requires ${cost} credits, but you only have ${user.credit_balance}.` });
-    }
-
-    // Deduct credits and update
-    const updatedUser = await prisma.user.update({
-      where: { user_id: req.user.id },
-      data: { credit_balance: { decrement: cost } },
-      select: { credit_balance: true }
-    });
-
-    res.json({ success: true, remaining_credits: updatedUser.credit_balance, cost });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Server error" });
-  }
-});
 
 // ════════════════════════════════════════════════════════════════════════════
 // COMMERCE & CREDITS ROUTES
@@ -907,10 +875,22 @@ app.patch('/api/admin/users/:id/subscription', authenticateToken, requireRole('a
     if (!user) return res.status(404).json({ error: "User not found" });
 
     const oldSubscription = user.subscription_id;
+
+    let addedCredits = 0;
+    if (subscription_id && subscription_id !== 'plan-free') {
+      const plan = await prisma.subscriptionPlan.findUnique({ where: { plan_id: subscription_id } });
+      if (plan) {
+        addedCredits = plan.weekly_credits || 0;
+      }
+    }
+
     const updated = await prisma.user.update({
       where: { user_id: id },
-      data: { subscription_id },
-      select: { user_id: true, email: true, full_name: true, subscription_id: true }
+      data: { 
+        subscription_id,
+        credit_balance: { increment: addedCredits }
+      },
+      select: { user_id: true, email: true, full_name: true, subscription_id: true, credit_balance: true }
     });
 
     await writeAuditLog({
@@ -1321,10 +1301,18 @@ app.post('/api/uploads/initiate', authenticateToken, async (req: any, res: any) 
     const { filename, file_size, mime_type, checksum_sha256 } = req.body;
     if (!filename || !file_size) return res.status(400).json({ error: "Missing filename or file_size" });
 
-    // Server-side file size enforcement (FR-UPLOAD-001)
-    if (file_size > MAX_FILE_SIZE_BYTES) {
+    const user = await prisma.user.findUnique({ where: { user_id: req.user.id } });
+    let maxSizeBytes = 10 * 1024 * 1024; // Default to 10MB (Free Tier)
+    if (user?.subscription_id && user.subscription_id !== 'plan-free') {
+      const plan = await prisma.subscriptionPlan.findUnique({ where: { plan_id: user.subscription_id } });
+      if (plan && plan.max_file_size_mb) {
+        maxSizeBytes = plan.max_file_size_mb * 1024 * 1024;
+      }
+    }
+
+    if (file_size > maxSizeBytes) {
       return res.status(413).json({
-        error: `File too large. Maximum allowed size is 25MB. Your file is ${(file_size / 1024 / 1024).toFixed(1)}MB.`
+        error: `File too large. Your plan's maximum allowed size is ${maxSizeBytes / 1024 / 1024}MB. Your file is ${(file_size / 1024 / 1024).toFixed(1)}MB.`
       });
     }
 
@@ -1375,6 +1363,74 @@ app.get('/api/uploads/:upload_id', authenticateToken, async (req: any, res: any)
   }
 });
 
+app.post('/api/convert', authenticateToken, upload.single('file'), async (req: any, res: any) => {
+  try {
+    if (!cloudConvert) {
+      return res.status(500).json({ error: "CloudConvert API key is not configured on the server." });
+    }
+    
+    const user = await prisma.user.findUnique({ where: { user_id: req.user.id } });
+    if (user?.subscription_id !== 'plan-elite') {
+      return res.status(403).json({ error: "Document conversion is an exclusive feature of the Revision Elite plan. Please upgrade to use this feature." });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded." });
+    }
+
+    const file = req.file;
+    const fileName = file.originalname;
+
+    // Create job
+    let job = await cloudConvert.jobs.create({
+      tasks: {
+        'upload-my-file': {
+          operation: 'import/upload'
+        },
+        'convert-my-file': {
+          operation: 'convert',
+          input: 'upload-my-file',
+          output_format: 'pdf',
+          engine: 'office'
+        },
+        'export-my-file': {
+          operation: 'export/url',
+          input: 'convert-my-file'
+        }
+      }
+    });
+
+    // Upload file
+    const uploadTask = job.tasks.filter((t: any) => t.name === 'upload-my-file')[0];
+    await cloudConvert.tasks.upload(uploadTask, file.buffer, fileName);
+
+    // Wait for job
+    job = await cloudConvert.jobs.wait(job.id);
+    
+    // Check if successful
+    const exportTask = job.tasks.filter((t: any) => t.name === 'export-my-file')[0];
+    if (exportTask.status !== 'finished' || !exportTask.result || !exportTask.result.files) {
+      return res.status(500).json({ error: "Conversion failed." });
+    }
+
+    const pdfFile = exportTask.result.files[0];
+    
+    // Fetch the PDF from the URL
+    const pdfResponse = await fetch(pdfFile.url);
+    const pdfBuffer = await pdfResponse.arrayBuffer();
+
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': 'attachment; filename="' + fileName.replace(/\.[^/.]+$/, "") + '.pdf"'
+    });
+    res.send(Buffer.from(pdfBuffer));
+    
+  } catch (err: any) {
+    console.error("CloudConvert Error:", err);
+    res.status(500).json({ error: err.message || "Failed to convert document." });
+  }
+});
+
 // ════════════════════════════════════════════════════════════════════════════
 // JOB LIMITS AND TRACKING
 // ════════════════════════════════════════════════════════════════════════════
@@ -1387,23 +1443,23 @@ app.post('/api/jobs/track', authenticateToken, async (req: any, res: any) => {
   try {
     const { pages_processed, is_ai_requested, is_unwatermarked, preset } = req.body;
 
+    if (typeof pages_processed !== 'number') {
+      return res.status(400).json({ error: "pages_processed is required and must be a number" });
+    }
+
     const user = await prisma.user.findUnique({ 
-      where: { user_id: req.user.id },
-      include: { 
-        subscriptions: {
-          include: { plan: true },
-          where: { status: 'active' },
-          orderBy: { created_at: 'desc' },
-          take: 1
-        }
-      }
+      where: { user_id: req.user.id }
     });
 
     if (!user) return res.status(404).json({ error: "User not found" });
 
-    // Fallback limit checking
-    const activePlan = user.subscriptions[0]?.plan;
-    const backendLimit = activePlan ? activePlan.max_pages_per_file : 40;
+    // Fetch active plan
+    let activePlan = null;
+    if (user.subscription_id && user.subscription_id !== 'plan-free') {
+      activePlan = await prisma.subscriptionPlan.findUnique({ where: { plan_id: user.subscription_id } });
+    }
+
+    const backendLimit = activePlan ? activePlan.max_pages_per_file : 40; // 40 pages limit for Free plan
 
     // 0 means unlimited in the new tiers for Revision Elite
     if (backendLimit > 0 && pages_processed > backendLimit) {
@@ -1412,11 +1468,13 @@ app.post('/api/jobs/track', authenticateToken, async (req: any, res: any) => {
       });
     }
 
-    // Cost Deduction Logic
-    const cost = calculateJobCost(pages_processed || 0, !!is_ai_requested, !!is_unwatermarked);
+    // Cost Deduction Logic (1 page = 1 credit, +50 unwatermarked, +100 AI)
+    let cost = pages_processed;
+    if (is_unwatermarked) cost += 50;
+    if (is_ai_requested) cost += 100;
     
     if (user.credit_balance < cost) {
-      return res.status(403).json({
+      return res.status(402).json({
         error: `Insufficient Credits. This job costs ${cost} credits, but you only have ${user.credit_balance} remaining.`
       });
     }
@@ -1439,9 +1497,8 @@ app.post('/api/jobs/track', authenticateToken, async (req: any, res: any) => {
         created_at: new Date().toISOString()
       }
     });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Server error" });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
   }
 });
 

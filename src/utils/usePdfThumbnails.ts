@@ -33,8 +33,8 @@ export function usePdfThumbnails(pdfFileBytes: ArrayBuffer | null) {
           
           const page = await pdf.getPage(i);
           
-          // Render at a low scale to keep data URLs small and fast
-          const viewport = page.getViewport({ scale: 0.5 });
+          // Render at a higher scale for readable text, but keep it balanced
+          const viewport = page.getViewport({ scale: 1.5 });
           
           const canvas = document.createElement('canvas');
           const context = canvas.getContext('2d');
@@ -52,7 +52,7 @@ export function usePdfThumbnails(pdfFileBytes: ArrayBuffer | null) {
           await page.render(renderContext as any).promise;
           
           if (isMounted) {
-            newThumbnails.push(canvas.toDataURL('image/jpeg', 0.7)); // JPEG with compression for speed
+            newThumbnails.push(canvas.toDataURL('image/jpeg', 0.9)); // Higher quality JPEG
           }
         }
 

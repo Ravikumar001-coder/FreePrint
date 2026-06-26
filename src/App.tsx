@@ -290,7 +290,11 @@ export default function App() {
 
 
   // Apply printing presets
-  const handleApplyPreset = (preset: PresetMode) => {
+  const handleApplyPreset = (rawPreset: PresetMode | string) => {
+    const presetStr = String(rawPreset).toLowerCase();
+    let preset = presetStr as PresetMode;
+    if (presetStr === "twoup") preset = "twoUp";
+
     if (preset === "lecture") {
       setConfig({
         ...config,
@@ -544,8 +548,8 @@ export default function App() {
     return docBytes.buffer;
   };
 
-  // Compile and Trigger Save of the final Imposed notes PDF document
-  const handleCompileAndDownload = async () => {
+  // Compile and Trigger Save or Print of the final Imposed notes PDF document
+  const handleCompileProcess = async (action: 'download' | 'print') => {
     if (!authToken) {
       setAuthModalOpen(true);
       return;
@@ -638,23 +642,45 @@ export default function App() {
 
       // Prepare save blob
       const blob = new Blob([compiledPdf], { type: "application/pdf" });
-      const downloadUrl = URL.createObjectURL(blob);
-      const tempLink = document.createElement("a");
-      tempLink.href = downloadUrl;
-      tempLink.download = pdfMetadata 
-        ? `Imposed_${config.pagesPerSheet}up_${pdfMetadata.name}`
-        : `Imposed_Demo_Notes_Signature_${config.pagesPerSheet}up.pdf`;
+      const blobUrl = URL.createObjectURL(blob);
       
-      document.body.appendChild(tempLink);
-      tempLink.click();
-      document.body.removeChild(tempLink);
-      URL.revokeObjectURL(downloadUrl);
+      if (action === 'download') {
+        const tempLink = document.createElement("a");
+        tempLink.href = blobUrl;
+        tempLink.download = pdfMetadata 
+          ? `Imposed_${config.pagesPerSheet}up_${pdfMetadata.name}`
+          : `Imposed_Demo_Notes_Signature_${config.pagesPerSheet}up.pdf`;
+        
+        document.body.appendChild(tempLink);
+        tempLink.click();
+        document.body.removeChild(tempLink);
+        URL.revokeObjectURL(blobUrl);
 
-      setCompileSuccessText(
-        pdfMetadata 
-          ? `Successfully compiled and downloaded "${pdfMetadata.name}" as an optimized ${config.pagesPerSheet}-page plate!`
-          : "Successfully compiled and downloaded 16-page Imposed Demo Notebook!"
-      );
+        setCompileSuccessText(
+          pdfMetadata 
+            ? `Successfully compiled and downloaded "${pdfMetadata.name}" as an optimized ${config.pagesPerSheet}-page plate!`
+            : "Successfully compiled and downloaded 16-page Imposed Demo Notebook!"
+        );
+      } else if (action === 'print') {
+        const iframe = document.createElement("iframe");
+        iframe.style.display = "none";
+        iframe.src = blobUrl;
+        document.body.appendChild(iframe);
+        iframe.onload = () => {
+          iframe.contentWindow?.print();
+          // Revoke URL after a safe delay
+          setTimeout(() => {
+             document.body.removeChild(iframe);
+             URL.revokeObjectURL(blobUrl);
+          }, 300000); // 5 minutes
+        };
+
+        setCompileSuccessText(
+          pdfMetadata 
+            ? `Successfully compiled "${pdfMetadata.name}". Opening Print Dialog...`
+            : "Successfully compiled Demo Notebook. Opening Print Dialog..."
+        );
+      }
     } catch (err: any) {
       console.error("Compilation error:", err);
       alert(`Fail during imposition layout compilation: ${err.message || err}`);
@@ -901,26 +927,46 @@ export default function App() {
                   </p>
                 </div>
 
-                <button
-                  onClick={handleCompileAndDownload}
-                  disabled={imposing || (currentUser && currentUser.credit_balance < ((pdfMetadata?.pageCount || 16) + (!config.watermark.enabled ? 50 : 0)))}
-                  className="bg-indigo-600 text-white hover:bg-indigo-700 disabled:bg-indigo-500/80 p-3 px-6 rounded-xl font-bold text-xs flex items-center justify-center gap-2 cursor-pointer transition-all shadow-md active:scale-95 animate-fade-in"
-                >
-                  {imposing ? (
-                    <>
-                      <Loader2 size={14} className="animate-spin" />
-                      Compiling...
-                    </>
-                  ) : (
-                    <>
-                      <Download size={14} />
-                      Compile & Download PDF 
-                      <span className="bg-indigo-800 text-indigo-100 px-1.5 py-0.5 rounded text-[10px]">
-                        (-{(pdfMetadata?.pageCount || 16) + (!config.watermark.enabled ? 50 : 0)} Credits)
-                      </span>
-                    </>
-                  )}
-                </button>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <button
+                    onClick={() => handleCompileProcess('download')}
+                    disabled={imposing || !!(currentUser && currentUser.credit_balance < ((pdfMetadata?.pageCount || 16) + (!config.watermark.enabled ? 50 : 0)))}
+                    className="bg-indigo-600 text-white hover:bg-indigo-700 disabled:bg-indigo-500/80 p-3 px-6 rounded-xl font-bold text-xs flex-1 flex items-center justify-center gap-2 cursor-pointer transition-all shadow-md active:scale-95 animate-fade-in"
+                  >
+                    {imposing ? (
+                      <>
+                        <Loader2 size={14} className="animate-spin" />
+                        Compiling...
+                      </>
+                    ) : (
+                      <>
+                        <Download size={14} />
+                        Download
+                        <span className="bg-indigo-800 text-indigo-100 px-1.5 py-0.5 rounded text-[10px]">
+                          (-{(pdfMetadata?.pageCount || 16) + (!config.watermark.enabled ? 50 : 0)} C)
+                        </span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    onClick={() => handleCompileProcess('print')}
+                    disabled={imposing || !!(currentUser && currentUser.credit_balance < ((pdfMetadata?.pageCount || 16) + (!config.watermark.enabled ? 50 : 0)))}
+                    className="bg-emerald-600 text-white hover:bg-emerald-700 disabled:bg-emerald-500/80 p-3 px-6 rounded-xl font-bold text-xs flex-1 flex items-center justify-center gap-2 cursor-pointer transition-all shadow-md active:scale-95 animate-fade-in"
+                  >
+                    {imposing ? (
+                      <>
+                        <Loader2 size={14} className="animate-spin" />
+                        Compiling...
+                      </>
+                    ) : (
+                      <>
+                        <Printer size={14} />
+                        Print directly
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
 
               {/* Midnight Cram-Pack CTA */}

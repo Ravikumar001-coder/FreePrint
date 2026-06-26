@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Bell, CheckCircle, Tag } from 'lucide-react';
 
 interface Notification {
@@ -18,6 +18,22 @@ export default function NotificationsPanel({ authToken }: NotificationsPanelProp
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (panelRef.current && !panelRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
 
   const fetchNotifications = async () => {
     try {
@@ -64,7 +80,7 @@ export default function NotificationsPanel({ authToken }: NotificationsPanelProp
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
   return (
-    <div className="relative">
+    <div className="relative" ref={panelRef}>
       <button 
         onClick={() => setIsOpen(!isOpen)}
         className="relative p-2 text-slate-600 hover:bg-slate-100 rounded-full transition-colors cursor-pointer"

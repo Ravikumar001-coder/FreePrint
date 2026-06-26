@@ -4,6 +4,7 @@
  */
 
 import React, { useState } from "react";
+import ReactMarkdown from 'react-markdown';
 import { 
   Sparkles, 
   BookOpen, 
@@ -204,9 +205,11 @@ export default function AIPanel({ pdfMetadata, onSelectRecommendedPreset }: AIPa
               <Terminal size={14} className="text-amber-400" />
               <span className="text-xs font-bold font-mono text-slate-200">Printable Pocket Cheatsheet Revision Block</span>
             </div>
-            <div className="prose prose-invert prose-xs text-slate-300 font-sans leading-relaxed text-xs">
-              <div className="whitespace-pre-wrap font-sans text-xs bg-slate-950 p-3.5 rounded-xl border border-slate-800/80 max-h-[220px] overflow-y-auto">
-                {suggestion.cheatSheetSummary}
+            <div className="prose prose-invert prose-sm max-w-none text-slate-200 font-sans leading-relaxed">
+              <div className="bg-slate-950 p-5 rounded-xl border border-slate-800/80 max-h-[300px] overflow-y-auto scrollbar-thin">
+                <ReactMarkdown>
+                  {suggestion.cheatSheetSummary}
+                </ReactMarkdown>
               </div>
             </div>
             <p className="text-[9px] text-slate-500 mt-3 font-mono leading-normal">

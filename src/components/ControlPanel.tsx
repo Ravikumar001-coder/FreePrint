@@ -16,7 +16,8 @@ import {
   Check, 
   AlertCircle,
   Hash,
-  Sparkles
+  Sparkles,
+  ChevronDown
 } from "lucide-react";
 import { ImpositionConfig, PresetMode, PagesPerSheet, MarginOption, DuplexMode, PaperSize } from "../types";
 
@@ -42,6 +43,9 @@ export default function ControlPanel({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragActive, setDragActive] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
+  const [animateSettings, setAnimateSettings] = useState(false);
+
+  const glowClass = animateSettings ? "ring-2 ring-indigo-500 shadow-[0_0_12px_rgba(99,102,241,0.6)] border-indigo-400" : "";
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -318,37 +322,69 @@ export default function ControlPanel({
               <button
                 key={preset.id}
                 onClick={() => handlePresetSelect(preset.id)}
-                className={`text-left p-3 rounded-xl border transition-all text-xs flex flex-col gap-1.5 ${
+                className={`relative text-left p-3 rounded-xl border transition-all text-xs flex flex-col gap-1.5 ${
                   isSelected
                     ? "border-indigo-600 bg-indigo-50/50 text-indigo-900 ring-1 ring-indigo-500 font-semibold"
                     : "border-gray-200 hover:border-indigo-200 bg-white"
                 }`}
               >
-                <div className="flex items-center gap-2">
-                  <div className={`p-1 rounded-md shrink-0 border ${preset.color}`}>
-                    <Icon size={12} />
+                <div className="flex items-center justify-between w-full">
+                  <div className="flex items-center gap-2">
+                    <div className={`p-1 rounded-md shrink-0 border ${preset.color}`}>
+                      <Icon size={12} />
+                    </div>
+                    <span className="font-semibold text-gray-900">{preset.title}</span>
                   </div>
-                  <span className="font-semibold text-gray-900">{preset.title}</span>
+                  {isSelected && (
+                    <div 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        document.getElementById("imposition_parameters")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                        setAnimateSettings(true);
+                        setTimeout(() => setAnimateSettings(false), 800);
+                      }}
+                      className="text-indigo-600 animate-bounce bg-indigo-100 p-0.5 rounded-full cursor-pointer hover:bg-indigo-200" 
+                      title="Tweak Advanced Settings"
+                    >
+                      <ChevronDown size={14} />
+                    </div>
+                  )}
                 </div>
-                <p className="text-[10px] text-gray-500 leading-normal">{preset.desc}</p>
+                <p className="text-[10px] text-gray-500 leading-normal pr-4">{preset.desc}</p>
               </button>
             );
           })}
           <button
             onClick={() => handlePresetSelect("custom")}
-            className={`text-left p-3 rounded-xl border transition-all text-xs flex flex-col gap-1.5 col-span-1 sm:col-span-2 ${
+            className={`relative text-left p-3 rounded-xl border transition-all text-xs flex flex-col gap-1.5 col-span-1 sm:col-span-2 ${
               config.preset === "custom"
                 ? "border-indigo-600 bg-indigo-50/50 text-indigo-900 ring-1 ring-indigo-500 font-semibold"
                 : "border-gray-200 hover:border-indigo-200 bg-white"
             }`}
           >
-            <div className="flex items-center gap-2">
-              <div className="p-1 rounded-md shrink-0 border text-gray-500 bg-gray-50 border-gray-100">
-                <Settings size={12} />
+            <div className="flex items-center justify-between w-full">
+              <div className="flex items-center gap-2">
+                <div className="p-1 rounded-md shrink-0 border text-gray-500 bg-gray-50 border-gray-100">
+                  <Settings size={12} />
+                </div>
+                <span className="font-semibold text-gray-900">Custom Mode</span>
               </div>
-              <span className="font-semibold text-gray-900">Custom Mode</span>
+              {config.preset === "custom" && (
+                <div 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    document.getElementById("imposition_parameters")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                    setAnimateSettings(true);
+                    setTimeout(() => setAnimateSettings(false), 800);
+                  }}
+                  className="text-indigo-600 animate-bounce bg-indigo-100 p-0.5 rounded-full cursor-pointer hover:bg-indigo-200" 
+                  title="Tweak Advanced Settings"
+                >
+                  <ChevronDown size={14} />
+                </div>
+              )}
             </div>
-            <p className="text-[10px] text-gray-500 leading-normal">
+            <p className="text-[10px] text-gray-500 leading-normal pr-4">
               Unlock total manual page layout sequence control (specify row grid splits, watermarking sizes, and custom margins)
             </p>
           </button>
@@ -356,7 +392,7 @@ export default function ControlPanel({
       </div>
 
       {/* 3. IMPOSTER MANUAL CONFIGURATION - ACCORDION LAYOUT / CONDITIONAL DISPLAY */}
-      <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-xs flex flex-col gap-4">
+      <div id="imposition_parameters" className="bg-white rounded-2xl border border-gray-100 p-5 shadow-xs flex flex-col gap-4 scroll-mt-6">
         <div className="flex items-center justify-between border-b border-gray-50 pb-3">
           <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
             <Settings size={16} className="text-indigo-500" />
@@ -451,7 +487,7 @@ export default function ControlPanel({
             <select
               value={config.duplexMode}
               onChange={(e) => updateConfig("duplexMode", e.target.value as DuplexMode)}
-              className="text-xs rounded-lg border border-gray-200 p-2 bg-white focus:ring-1 focus:ring-indigo-500"
+              className={`text-xs rounded-lg border border-gray-200 p-2 bg-white focus:ring-1 focus:ring-indigo-500 transition-all duration-500 ${glowClass}`}
             >
               <option value="flip-long">Flip Long Edge (Portrait)</option>
               <option value="flip-short">Flip Short Edge (Landscape)</option>
@@ -465,7 +501,7 @@ export default function ControlPanel({
               disabled={config.preset === "booklet"}
               value={config.layoutFlow}
               onChange={(e) => updateConfig("layoutFlow", e.target.value)}
-              className="text-xs rounded-lg border border-gray-200 p-2 bg-white focus:ring-1 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-400"
+              className={`text-xs rounded-lg border border-gray-200 p-2 bg-white focus:ring-1 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-400 transition-all duration-500 ${glowClass}`}
             >
               <option value="duplex-notes">Correct Notes (Backs match Fronts)</option>
               <option value="rows">Simple Flow (By horizontal rows)</option>
@@ -485,7 +521,7 @@ export default function ControlPanel({
             placeholder="Blank for all pages"
             value={config.selectedPages}
             onChange={(e) => updateConfig("selectedPages", e.target.value)}
-            className="w-full text-xs rounded-lg border border-gray-200 p-2 placeholder-gray-400 focus:ring-1 focus:ring-indigo-500"
+            className={`w-full text-xs rounded-lg border border-gray-200 p-2 placeholder-gray-400 focus:ring-1 focus:ring-indigo-500 transition-all duration-500 ${glowClass}`}
           />
         </div>
 
@@ -497,7 +533,7 @@ export default function ControlPanel({
               disabled={config.preset !== "custom"}
               value={config.margin}
               onChange={(e) => updateConfig("margin", e.target.value as MarginOption)}
-              className="text-xs rounded-lg border border-gray-200 p-2 bg-white focus:ring-1 focus:ring-indigo-500 disabled:bg-gray-50"
+              className={`text-xs rounded-lg border border-gray-200 p-2 bg-white focus:ring-1 focus:ring-indigo-500 disabled:bg-gray-50 transition-all duration-500 ${glowClass}`}
             >
               <option value="none">None (0 pt)</option>
               <option value="compact">Compact (12 pt)</option>

@@ -3,13 +3,22 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-export type PagesPerSheet = 1 | 2 | 4 | 6 | 8 | 9 | 12 | 16;
+export type PagesPerSheet = number;
 
-export type MarginOption = "none" | "compact" | "standard" | "wide";
+export type PaperSize = "A4" | "A3" | "Letter" | "A5";
+
+export type MarginOption = "none" | "compact" | "standard" | "wide" | "custom";
+
+export interface CustomMargins {
+  top: number;
+  bottom: number;
+  left: number;
+  right: number;
+}
 
 export type DuplexMode = "flip-long" | "flip-short" | "none";
 
-export type PresetMode = "makaut" | "gate" | "booklet" | "exam" | "jee" | "twoUp" | "custom";
+export type PresetMode = "lecture" | "gate" | "booklet" | "exam" | "jee" | "twoUp" | "custom";
 
 export interface CostConfig {
   costPerSheet: number; // e.g. 1.0 or 0.05
@@ -25,12 +34,13 @@ export interface WatermarkConfig {
 
 export interface ImpositionConfig {
   preset: PresetMode;
+  paperSize: PaperSize;
   pagesPerSheet: PagesPerSheet;
   columns: number;
   rows: number;
   duplexMode: DuplexMode;
   margin: MarginOption;
-  customMarginValue: number; // in points (1 inch = 72 points)
+  customMargins: CustomMargins; // in points (1 inch = 72 points)
   pageNumbersEnabled: boolean;
   watermark: WatermarkConfig;
   cost: CostConfig;

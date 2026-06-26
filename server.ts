@@ -747,6 +747,41 @@ app.post('/api/commerce/buy-credits', authenticateToken, async (req: any, res: a
   }
 });
 
+// POST /api/admin/users/:id/reset-plan - Reset user credits to plan defaults
+app.post('/api/admin/users/:id/reset-plan', authenticateToken, requireRole('admin'), async (req: any, res: any) => {
+  try {
+    const { id } = req.params;
+    const user = await prisma.user.findUnique({ where: { user_id: id } });
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    let newCredits = 0;
+    if (user.subscription_id && user.subscription_id !== 'plan-free' && user.subscription_id !== 'free') {
+      const plan = await prisma.subscriptionPlan.findUnique({ where: { plan_slug: user.subscription_id } });
+      if (plan) {
+        newCredits = plan.weekly_credits || 0;
+      }
+    } else {
+      // Default free plan credits
+      newCredits = 50; 
+    }
+
+    const updated = await prisma.user.update({
+      where: { user_id: id },
+      data: { credit_balance: newCredits }
+    });
+
+    await writeAuditLog({
+      user_id: req.user.id, action_type: 'UPDATE', action_category: 'USER_MANAGEMENT', table_name: 'User',
+      record_id: id, new_values: { credit_balance: newCredits }, severity: 'info'
+    });
+
+    res.json({ success: true, new_balance: newCredits, user: updated });
+  } catch (err: any) {
+    console.error("Plan reset error:", err);
+    res.status(500).json({ error: "Internal server error resetting plan credits" });
+  }
+});
+
 // PATCH /api/admin/users/:id/role — promote or demote a user's role
 app.patch('/api/admin/users/:id/role', authenticateToken, requireRole('admin'), async (req: any, res: any) => {
   try {
@@ -877,8 +912,8 @@ app.patch('/api/admin/users/:id/subscription', authenticateToken, requireRole('a
     const oldSubscription = user.subscription_id;
 
     let addedCredits = 0;
-    if (subscription_id && subscription_id !== 'plan-free') {
-      const plan = await prisma.subscriptionPlan.findUnique({ where: { plan_id: subscription_id } });
+    if (subscription_id && subscription_id !== 'free' && subscription_id !== 'plan-free') {
+      const plan = await prisma.subscriptionPlan.findUnique({ where: { plan_slug: subscription_id } });
       if (plan) {
         addedCredits = plan.weekly_credits || 0;
       }
@@ -928,7 +963,7 @@ app.patch('/api/admin/users/:id/send-coupon', authenticateToken, requireRole('ad
 
     let newCoupon;
     if (is_custom) {
-      const firstName = (user.name || 'GIFT').split(' ')[0].toUpperCase().replace(/[^A-Z0-9]/g, '');
+      const firstName = (user.full_name || 'GIFT').split(' ')[0].toUpperCase().replace(/[^A-Z0-9]/g, '');
       const creditsStr = free_credits ? free_credits.toString() : (discount_value ? `${discount_value}OFF` : 'VIP');
       let baseCode = `${firstName}${creditsStr}`;
       
@@ -1303,8 +1338,8 @@ app.post('/api/uploads/initiate', authenticateToken, async (req: any, res: any) 
 
     const user = await prisma.user.findUnique({ where: { user_id: req.user.id } });
     let maxSizeBytes = 10 * 1024 * 1024; // Default to 10MB (Free Tier)
-    if (user?.subscription_id && user.subscription_id !== 'plan-free') {
-      const plan = await prisma.subscriptionPlan.findUnique({ where: { plan_id: user.subscription_id } });
+    if (user?.subscription_id && user.subscription_id !== 'free' && user.subscription_id !== 'plan-free') {
+      const plan = await prisma.subscriptionPlan.findUnique({ where: { plan_slug: user.subscription_id } });
       if (plan && plan.max_file_size_mb) {
         maxSizeBytes = plan.max_file_size_mb * 1024 * 1024;
       }
@@ -1370,7 +1405,7 @@ app.post('/api/convert', authenticateToken, upload.single('file'), async (req: a
     }
     
     const user = await prisma.user.findUnique({ where: { user_id: req.user.id } });
-    if (user?.subscription_id !== 'plan-elite') {
+    if (user?.subscription_id !== 'elite' && user?.subscription_id !== 'plan-elite') {
       return res.status(403).json({ error: "Document conversion is an exclusive feature of the Revision Elite plan. Please upgrade to use this feature." });
     }
 
@@ -1455,8 +1490,8 @@ app.post('/api/jobs/track', authenticateToken, async (req: any, res: any) => {
 
     // Fetch active plan
     let activePlan = null;
-    if (user.subscription_id && user.subscription_id !== 'plan-free') {
-      activePlan = await prisma.subscriptionPlan.findUnique({ where: { plan_id: user.subscription_id } });
+    if (user.subscription_id && user.subscription_id !== 'plan-free' && user.subscription_id !== 'free') {
+      activePlan = await prisma.subscriptionPlan.findUnique({ where: { plan_slug: user.subscription_id } });
     }
 
     const backendLimit = activePlan ? activePlan.max_pages_per_file : 40; // 40 pages limit for Free plan
@@ -1600,7 +1635,7 @@ app.post('/api/subscriptions/select', authenticateToken, async (req: any, res: a
       severity: 'info',
       api_endpoint: '/api/subscriptions/select',
       http_method: 'POST',
-      notes: `User upgraded to plan '${plan.name}'${discountApplied ? ` using coupon '${coupon_code}'` : ''}`,
+      notes: `User upgraded to plan '${plan.plan_name}'${discountApplied ? ` using coupon '${coupon_code}'` : ''}`,
     });
 
     res.json({ success: true, user: updatedUser });

@@ -11,3 +11,5 @@ coverage/
 # Private developer notes
 developer_commands.md
 commands.md
+tests/
+Doc/

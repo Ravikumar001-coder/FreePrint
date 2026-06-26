@@ -88,7 +88,7 @@ export default function AIPanel({ pdfMetadata, onSelectRecommendedPreset }: AIPa
             >
               <option value="Engineering Slides">Engineering Lectures / Slide Decks</option>
               <option value="GATE Notes">GATE Competitive Formulas</option>
-              <option value="MAKAUT Syllabus Notes">MAKAUT Direct Slide Revisions</option>
+              <option value="University Lecture Notes">University Direct Slide Revisions</option>
               <option value="Medical Diagrams">Medical & Biopharm notes</option>
               <option value="Humanities Narrative">Humanities Textbooks / Narrative</option>
               <option value="Pocket Cheat Sheets">Pocket Study Outlines</option>

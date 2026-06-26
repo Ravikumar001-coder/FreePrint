@@ -29,6 +29,7 @@ interface CostEstimatorProps {
   setAppliedCoupon: (coupon: CouponCode | null) => void;
   couponCodes: CouponCode[];
   onDiscountVoucherApplied?: (coupon: CouponCode) => void;
+  currentUser?: any;
 }
 
 export default function CostEstimator({
@@ -40,7 +41,8 @@ export default function CostEstimator({
   appliedCoupon,
   setAppliedCoupon,
   couponCodes,
-  onDiscountVoucherApplied
+  onDiscountVoucherApplied,
+  currentUser
 }: CostEstimatorProps) {
   const { costPerSheet, duplexDiscount } = config.cost;
 
@@ -322,12 +324,18 @@ export default function CostEstimator({
               <X size={14} />
             </button>
           </div>
+        ) : !currentUser ? (
+          <div className="bg-slate-100 border border-slate-200 rounded-lg p-3 text-center">
+            <p className="text-xs text-slate-500 font-medium flex items-center justify-center gap-1.5">
+              <ShieldAlert size={14} className="text-slate-400" />
+              Please login to redeem vouchers
+            </p>
+          </div>
         ) : (
           <form onSubmit={handleApplyCouponCode} className="flex gap-2">
             <div className="flex-1 relative">
               <input
                 type="text"
-                placeholder="e.g. FREEPRINT, STUDYBUDDY, HALFOFF..."
                 value={couponInput}
                 onChange={e => setCouponInput(e.target.value)}
                 className="w-full text-xs rounded-lg border border-gray-250 p-2.5 bg-white uppercase font-mono tracking-widest focus:ring-1 focus:ring-indigo-500 placeholder-slate-400 font-semibold"

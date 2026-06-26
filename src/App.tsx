@@ -52,16 +52,17 @@ const fallbackPlan: SubscriptionPlan = {
 };
 
 const DEFAULT_CONFIG: ImpositionConfig = {
-  preset: "makaut",
+  preset: "lecture",
+  paperSize: "A4",
   pagesPerSheet: 4,
   columns: 2,
   rows: 2,
   duplexMode: "flip-long",
   margin: "compact",
-  customMarginValue: 12,
+  customMargins: { top: 12, bottom: 12, left: 12, right: 12 },
   pageNumbersEnabled: true,
   watermark: {
-    text: "MAKAUT REVISION",
+    text: "LECTURE REVISION",
     enabled: true,
     opacity: 0.1,
     size: 26,
@@ -290,23 +291,37 @@ export default function App() {
 
   // Apply printing presets
   const handleApplyPreset = (preset: PresetMode) => {
-    if (preset === "makaut") {
+    if (preset === "lecture") {
       setConfig({
         ...config,
-        preset: "makaut",
+        preset: "lecture",
+        paperSize: "A4",
         pagesPerSheet: 4,
         columns: 2,
         rows: 2,
-        duplexMode: "flip-long",
+        duplexMode: "flip-short",
         margin: "compact",
         pageNumbersEnabled: true,
         watermark: {
-          text: "MAKAUT EXAM",
+          text: "LECTURE EXAM",
           enabled: true,
           opacity: 0.1,
           size: 28,
         },
-        layoutFlow: "duplex-notes",
+        layoutFlow: "rows"
+      });
+    } else if (preset === "booklet") {
+      setConfig({
+        ...config,
+        preset: "booklet",
+        paperSize: "A4", // Force A4 for booklet
+        pagesPerSheet: 2,
+        columns: 2,
+        rows: 1,
+        duplexMode: "flip-short",
+        margin: "standard",
+        pageNumbersEnabled: true,
+        layoutFlow: "rows"
       });
     } else if (preset === "gate") {
       setConfig({
@@ -323,24 +338,6 @@ export default function App() {
           enabled: true,
           opacity: 0.08,
           size: 20,
-        },
-        layoutFlow: "duplex-notes",
-      });
-    } else if (preset === "booklet") {
-      setConfig({
-        ...config,
-        preset: "booklet",
-        pagesPerSheet: 2,
-        columns: 2,
-        rows: 1,
-        duplexMode: "flip-short",
-        margin: "standard",
-        pageNumbersEnabled: true,
-        watermark: {
-          text: "",
-          enabled: false,
-          opacity: 0.05,
-          size: 24,
         },
         layoutFlow: "duplex-notes",
       });
@@ -875,11 +872,6 @@ export default function App() {
               onUploadPDF={handleUploadPDF}
               loading={uploadLoading}
               uploadProgress={uploadProgress}
-              subscriptionPlans={subscriptionPlans}
-              currentPlanId={currentPlanId}
-              currentUser={currentUser}
-              authToken={authToken}
-              setCurrentUser={setCurrentUser}
               onApplyPreset={handleApplyPreset}
             />
             
@@ -889,9 +881,6 @@ export default function App() {
             {/* AI DECISION ENGINE WRAPPER */}
             <AIPanel
               pdfMetadata={pdfMetadata}
-              currentUser={currentUser}
-              authToken={authToken}
-              setCurrentUser={setCurrentUser}
               onSelectRecommendedPreset={(recommendedPreset) => {
                 handleApplyPreset(recommendedPreset);
               }}
@@ -983,6 +972,7 @@ export default function App() {
               appliedCoupon={appliedCoupon}
               setAppliedCoupon={setAppliedCoupon}
               couponCodes={couponCodes}
+              currentUser={currentUser}
               onDiscountVoucherApplied={handleDiscountVoucherApplied}
             />
           </div>

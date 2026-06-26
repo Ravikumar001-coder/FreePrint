@@ -18,7 +18,7 @@ import {
   Hash,
   Sparkles
 } from "lucide-react";
-import { ImpositionConfig, PresetMode, PagesPerSheet, MarginOption, DuplexMode } from "../types";
+import { ImpositionConfig, PresetMode, PagesPerSheet, MarginOption, DuplexMode, PaperSize } from "../types";
 
 interface ControlPanelProps {
   config: ImpositionConfig;
@@ -270,8 +270,8 @@ export default function ControlPanel({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           {[
             {
-              id: "makaut" as PresetMode,
-              title: "MAKAUT Notes",
+              id: "lecture" as PresetMode,
+              title: "Lecture Deck (4-Up)",
               desc: "4 pages per sheet (2x2), compact margins, fit slides",
               icon: LayoutGrid,
               color: "text-blue-500 bg-blue-50 border-blue-100",
@@ -369,96 +369,79 @@ export default function ControlPanel({
           )}
         </div>
 
+        {/* Paper Size Settings */}
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-semibold text-gray-700 flex justify-between">
+            <span>Target Paper Canvas</span>
+          </label>
+          <select
+            value={config.paperSize}
+            onChange={(e) => updateConfig("paperSize", e.target.value as PaperSize)}
+            disabled={config.preset === "booklet"}
+            className="w-full text-xs rounded-lg border border-gray-200 p-2 bg-white focus:ring-1 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-400"
+          >
+            <option value="A4">A4 (Standard Document)</option>
+            <option value="A3">A3 (Engineering / Poster)</option>
+            <option value="Letter">Letter (US Standard)</option>
+            <option value="A5">A5 (Pocket Flyer)</option>
+          </select>
+        </div>
+
         {/* pages-per-sheet settings */}
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-semibold text-gray-700 flex justify-between">
             <span>Pages Per Sheet Side</span>
             <span className="text-indigo-600 font-bold">{config.pagesPerSheet} Pages</span>
           </label>
-          <select
-            disabled={config.preset !== "custom"}
-            value={config.pagesPerSheet}
-            onChange={(e) => {
-              const val = parseInt(e.target.value, 10) as PagesPerSheet;
-              updateConfig("pagesPerSheet", val);
-              // Auto assign proportional grids
-              if (val === 2) {
-                onChangeConfig({
-                  ...config,
-                  pagesPerSheet: 2,
-                  columns: 2,
-                  rows: 1,
-                  preset: "custom",
-                });
-              } else if (val === 4) {
-                onChangeConfig({
-                  ...config,
-                  pagesPerSheet: 4,
-                  columns: 2,
-                  rows: 2,
-                  preset: "custom",
-                });
-              } else if (val === 6) {
-                onChangeConfig({
-                  ...config,
-                  pagesPerSheet: 6,
-                  columns: 3,
-                  rows: 2,
-                  preset: "custom",
-                });
-              } else if (val === 8) {
-                onChangeConfig({
-                  ...config,
-                  pagesPerSheet: 8,
-                  columns: 4,
-                  rows: 2,
-                  preset: "custom",
-                });
-              } else if (val === 9) {
-                onChangeConfig({
-                  ...config,
-                  pagesPerSheet: 9,
-                  columns: 3,
-                  rows: 3,
-                  preset: "custom",
-                });
-              } else if (val === 12) {
-                onChangeConfig({
-                  ...config,
-                  pagesPerSheet: 12,
-                  columns: 4,
-                  rows: 3,
-                  preset: "custom",
-                });
-              } else if (val === 16) {
-                onChangeConfig({
-                  ...config,
-                  pagesPerSheet: 16,
-                  columns: 4,
-                  rows: 4,
-                  preset: "custom",
-                });
-              } else {
-                onChangeConfig({
-                  ...config,
-                  pagesPerSheet: 1,
-                  columns: 1,
-                  rows: 1,
-                  preset: "custom",
-                });
-              }
-            }}
-            className="w-full text-xs rounded-lg border border-gray-200 p-2 bg-white focus:ring-1 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-400"
-          >
-            <option value="1">1 page per sheet (No Imposition)</option>
-            <option value="2">2 pages per sheet (Dual landscape split)</option>
-            <option value="4">4 pages per sheet (2x2 quad screen)</option>
-            <option value="6">6 pages per sheet (3x2 dense revision)</option>
-            <option value="8">8 pages per sheet (4x2 book signature)</option>
-            <option value="9">9 pages per sheet (3x3 super compression)</option>
-            <option value="12">12 pages per sheet (4x3 syllabus card)</option>
-            <option value="16">16 pages per sheet (4x4 extreme micro-cheat)</option>
-          </select>
+          
+          {config.preset === "custom" ? (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] text-gray-500">Columns</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="10"
+                  value={config.columns}
+                  onChange={(e) => {
+                    const cols = parseInt(e.target.value, 10) || 1;
+                    onChangeConfig({
+                      ...config,
+                      columns: cols,
+                      pagesPerSheet: cols * config.rows,
+                    });
+                  }}
+                  className="w-full text-xs rounded-lg border border-gray-200 p-2 bg-white focus:ring-1 focus:ring-indigo-500"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] text-gray-500">Rows</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="10"
+                  value={config.rows}
+                  onChange={(e) => {
+                    const r = parseInt(e.target.value, 10) || 1;
+                    onChangeConfig({
+                      ...config,
+                      rows: r,
+                      pagesPerSheet: config.columns * r,
+                    });
+                  }}
+                  className="w-full text-xs rounded-lg border border-gray-200 p-2 bg-white focus:ring-1 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+          ) : (
+            <select
+              disabled={true}
+              value={config.pagesPerSheet}
+              className="w-full text-xs rounded-lg border border-gray-200 p-2 bg-gray-50 text-gray-400 cursor-not-allowed"
+            >
+              <option value={config.pagesPerSheet}>{config.pagesPerSheet} pages per sheet ({config.columns}x{config.rows})</option>
+            </select>
+          )}
         </div>
 
         {/* Duplex and Layout Flow */}
@@ -520,6 +503,7 @@ export default function ControlPanel({
               <option value="compact">Compact (12 pt)</option>
               <option value="standard">Standard (24 pt)</option>
               <option value="wide">Wide (40 pt)</option>
+              <option value="custom">Custom</option>
             </select>
           </div>
 
@@ -540,6 +524,27 @@ export default function ControlPanel({
           </div>
         </div>
 
+        {config.margin === "custom" && (
+          <div className="grid grid-cols-4 gap-2 mt-2">
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] text-gray-500">Top (pt)</label>
+              <input type="number" value={config.customMargins?.top || 0} onChange={(e) => onChangeConfig({ ...config, customMargins: { ...config.customMargins, top: parseInt(e.target.value) || 0 }})} className="w-full text-xs border border-gray-200 p-1.5 rounded" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] text-gray-500">Bottom (pt)</label>
+              <input type="number" value={config.customMargins?.bottom || 0} onChange={(e) => onChangeConfig({ ...config, customMargins: { ...config.customMargins, bottom: parseInt(e.target.value) || 0 }})} className="w-full text-xs border border-gray-200 p-1.5 rounded" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] text-gray-500">Left (pt)</label>
+              <input type="number" value={config.customMargins?.left || 0} onChange={(e) => onChangeConfig({ ...config, customMargins: { ...config.customMargins, left: parseInt(e.target.value) || 0 }})} className="w-full text-xs border border-gray-200 p-1.5 rounded" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] text-gray-500">Right (pt)</label>
+              <input type="number" value={config.customMargins?.right || 0} onChange={(e) => onChangeConfig({ ...config, customMargins: { ...config.customMargins, right: parseInt(e.target.value) || 0 }})} className="w-full text-xs border border-gray-200 p-1.5 rounded" />
+            </div>
+          </div>
+        )}
+
         {/* Watermarking Controls */}
         <div className="border-t border-gray-50 pt-3 flex flex-col gap-3">
           <div className="flex items-center justify-between">
@@ -558,7 +563,7 @@ export default function ControlPanel({
                 <span className="text-[10px] text-gray-500 font-semibold uppercase">Watermark Caption</span>
                 <input
                   type="text"
-                  placeholder="e.g. MAKAUT EXAM PREP"
+                  placeholder="e.g. LECTURE EXAM PREP"
                   value={config.watermark.text}
                   onChange={(e) => updateWatermark("text", e.target.value)}
                   className="text-xs rounded-lg border border-gray-200 p-2"

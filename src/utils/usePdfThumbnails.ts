@@ -49,7 +49,7 @@ export function usePdfThumbnails(pdfFileBytes: ArrayBuffer | null) {
             viewport: viewport
           };
 
-          await page.render(renderContext).promise;
+          await page.render(renderContext as any).promise;
           
           if (isMounted) {
             newThumbnails.push(canvas.toDataURL('image/jpeg', 0.7)); // JPEG with compression for speed

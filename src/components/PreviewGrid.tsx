@@ -31,7 +31,7 @@ export default function PreviewGrid({ sheets, config, pdfThumbnails }: PreviewGr
   const totalSheets = sheets.length;
   const activeSheet: Sheet | undefined = sheets[activeSheetIdx];
 
-  const { cols, rows, orientation } = getGridDimensions(config.pagesPerSheet);
+  const { cols, rows, orientation } = getGridDimensions(config.columns, config.rows);
 
   const handlePrev = () => {
     setActiveSheetIdx((prev) => Math.max(0, prev - 1));

@@ -267,6 +267,28 @@ export default function AdminPanel({
     }
   };
 
+  const handleUserPlanReset = async (userId: string) => {
+    setUserActionLoading(userId);
+    try {
+      const res = await fetch(`/api/admin/users/${userId}/reset-plan`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` }
+      });
+      if (res.ok) {
+        triggerToast(`User's plan credits have been successfully reset.`);
+        await fetchUsers();
+      } else {
+        const d = await res.json();
+        triggerToast(`Error: ${d.error || 'Failed to reset user plan.'}`);
+      }
+    } catch (err) {
+      triggerToast('Network error. Could not reset user plan.');
+    } finally {
+      setUserActionLoading(null);
+      setConfirmModal(null);
+    }
+  };
+
   const handleSendCoupon = async () => {
     if (!sendCouponModal) return;
     const { userId, userEmail, couponId } = sendCouponModal;
@@ -310,7 +332,7 @@ export default function AdminPanel({
                           u.username?.toLowerCase().includes(userSearch.toLowerCase());
     
     const matchesRole = userRoleFilter === 'all' || (u.role?.role_slug || 'student') === userRoleFilter;
-    const matchesPlan = userPlanFilter === 'all' || (u.subscription_id || 'plan-free') === userPlanFilter;
+    const matchesPlan = userPlanFilter === 'all' || (u.subscription_id || 'free') === userPlanFilter;
     const matchesStatus = userStatusFilter === 'all' || u.status === userStatusFilter;
     
     let matchesDate = true;
@@ -457,7 +479,7 @@ export default function AdminPanel({
 
   // Delete Plan
   const handleDeletePlan = async (id: string) => {
-    if (id === "free" || id === "plan-free") {
+    if (id === "free") {
       alert("The default Free plan cannot be deleted.");
       return;
     }
@@ -470,7 +492,7 @@ export default function AdminPanel({
       await fetch(`/api/admin/plans/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${authToken}` } });
     } catch (e) {}
     
-    if (id === currentPlanId) setCurrentPlanId("plan-free");
+    if (id === currentPlanId) setCurrentPlanId("free");
     setSubscriptionPlans(prev => prev.filter(p => p.id !== id));
     triggerToast(`Plan "${plan?.name || "Tier"}" deleted successfully.`);
   };
@@ -1007,7 +1029,7 @@ export default function AdminPanel({
                         </button>
                         <button
                           onClick={() => handleDeletePlan(plan.id)}
-                          disabled={plan.id === "plan-free"}
+                          disabled={plan.id === "free"}
                           className="hover:bg-red-50 text-slate-400 hover:text-red-600 p-1.5 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
                         >
                           <Trash2 size={11} />
@@ -1398,7 +1420,13 @@ export default function AdminPanel({
             <div className="flex gap-2 justify-end">
               <button onClick={() => setConfirmModal(null)} className="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-200 cursor-pointer">Cancel</button>
               <button
-                onClick={() => handleUserStatusChange(confirmModal.userId, confirmModal.action)}
+                onClick={() => {
+                  if (confirmModal.action === 'reset_plan') {
+                    handleUserPlanReset(confirmModal.userId);
+                  } else {
+                    handleUserStatusChange(confirmModal.userId, confirmModal.action);
+                  }
+                }}
                 className="px-4 py-2 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-700 cursor-pointer"
                 disabled={userActionLoading === confirmModal.userId}
               >
@@ -1557,7 +1585,7 @@ export default function AdminPanel({
             <span className="text-[9px] font-bold uppercase text-slate-500">Plan</span>
             <select value={userPlanFilter} onChange={e => setUserPlanFilter(e.target.value)} className="text-xs border border-slate-200 rounded p-1.5 focus:ring-1 focus:ring-indigo-500 bg-white cursor-pointer">
               <option value="all">All Plans</option>
-              <option value="plan-free">Free</option>
+              <option value="free">Free</option>
               {subscriptionPlans.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </div>
@@ -1658,17 +1686,17 @@ export default function AdminPanel({
                       <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Change Plan</span>
                       <div className="flex items-center gap-1">
                         <select
-                          value={promoteSubscriptionId[u.user_id] || u.subscription_id || 'plan-free'}
+                          value={promoteSubscriptionId[u.user_id] || u.subscription_id || 'free'}
                           onChange={e => setPromoteSubscriptionId(prev => ({ ...prev, [u.user_id]: e.target.value }))}
                           className="text-[10px] border border-slate-200 rounded-lg p-1 bg-white cursor-pointer focus:ring-1 focus:ring-indigo-500 max-w-[110px]"
                         >
-                          <option value="plan-free" disabled>Select plan...</option>
+                          <option value="free" disabled>Select plan...</option>
                           {subscriptionPlans.map(p => (
                             <option key={p.id} value={p.id}>{p.name}</option>
                           ))}
                         </select>
                         <button
-                          onClick={() => handleUserSubscriptionChange(u.user_id, promoteSubscriptionId[u.user_id] || u.subscription_id || 'plan-free')}
+                          onClick={() => handleUserSubscriptionChange(u.user_id, promoteSubscriptionId[u.user_id] || u.subscription_id || 'free')}
                           disabled={userActionLoading === u.user_id}
                           className="text-[10px] bg-indigo-100 hover:bg-indigo-200 text-indigo-700 font-bold p-1 rounded-lg cursor-pointer transition-colors disabled:opacity-50"
                           title="Apply plan change"
@@ -1706,22 +1734,32 @@ export default function AdminPanel({
                       >
                         <Ban size={12} /> Ban
                       </button>
-                      <button
-                        onClick={() => setSendCouponModal({ 
-                          userId: u.user_id, 
-                          userEmail: u.email, 
-                          isCustom: false,
-                          couponId: '',
-                          customDiscountType: 'none',
-                          customDiscountValue: 0,
-                          customFreeCredits: 100,
-                          customDescription: 'Custom Admin Voucher'
-                        })}
-                        disabled={userActionLoading === u.user_id || u.status !== 'active'}
-                        className="w-full flex justify-center items-center gap-1.5 text-[10px] bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-2 py-1.5 rounded-lg cursor-pointer transition-colors disabled:opacity-50 disabled:pointer-events-none shadow-sm"
-                      >
-                        <Gift size={12} /> Send Voucher
-                      </button>
+                      <div className="flex gap-2 w-full">
+                        <button
+                          onClick={() => setSendCouponModal({ 
+                            userId: u.user_id, 
+                            userEmail: u.email, 
+                            isCustom: false,
+                            couponId: '',
+                            customDiscountType: 'none',
+                            customDiscountValue: 0,
+                            customFreeCredits: 100,
+                            customDescription: 'Custom Admin Voucher'
+                          })}
+                          disabled={userActionLoading === u.user_id || u.status !== 'active'}
+                          className="flex-1 flex justify-center items-center gap-1.5 text-[10px] bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-2 py-1.5 rounded-lg cursor-pointer transition-colors disabled:opacity-50 disabled:pointer-events-none shadow-sm"
+                        >
+                          <Gift size={12} /> Send Voucher
+                        </button>
+                        <button
+                          onClick={() => setConfirmModal({ userId: u.user_id, action: 'reset_plan', label: 'Reset Credits' })}
+                          disabled={userActionLoading === u.user_id || u.status !== 'active'}
+                          className="flex-1 flex justify-center items-center gap-1.5 text-[10px] bg-orange-100 hover:bg-orange-200 text-orange-700 font-bold px-2 py-1.5 rounded-lg cursor-pointer transition-colors disabled:opacity-50 shadow-sm"
+                          title="Restore user credits to their active plan's default weekly limit"
+                        >
+                          <RefreshCw size={12} /> Reset Credits
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>

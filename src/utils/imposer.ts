@@ -53,27 +53,12 @@ export function parsePageSubset(pageStr: string, maxPages: number): number[] {
  * Returns grid dimensions (cols, rows) for a given pages-per-sheet setting.
  * In a landscape sheets context, dimensions are automatically rotated to preserve ratio.
  */
-export function getGridDimensions(pagesPerSheet: PagesPerSheet): { cols: number; rows: number; orientation: "portrait" | "landscape" } {
-  switch (pagesPerSheet) {
-    case 1:
-      return { cols: 1, rows: 1, orientation: "portrait" };
-    case 2:
-      return { cols: 2, rows: 1, orientation: "landscape" };
-    case 4:
-      return { cols: 2, rows: 2, orientation: "portrait" };
-    case 6:
-      return { cols: 3, rows: 2, orientation: "landscape" };
-    case 8:
-      return { cols: 4, rows: 2, orientation: "landscape" };
-    case 9:
-      return { cols: 3, rows: 3, orientation: "portrait" };
-    case 12:
-      return { cols: 4, rows: 3, orientation: "landscape" };
-    case 16:
-      return { cols: 4, rows: 4, orientation: "portrait" };
-    default:
-      return { cols: 1, rows: 1, orientation: "portrait" };
-  }
+export function getGridDimensions(cols: number, rows: number): { cols: number; rows: number; orientation: "portrait" | "landscape" } {
+  return {
+    cols,
+    rows,
+    orientation: cols > rows ? "landscape" : "portrait",
+  };
 }
 
 /**
@@ -84,8 +69,8 @@ export function generateSheetLayout(
   activePages: number[],
   config: ImpositionConfig
 ): Sheet[] {
-  const { pagesPerSheet, duplexMode, preset } = config;
-  const { cols, rows } = getGridDimensions(pagesPerSheet);
+  const { pagesPerSheet, duplexMode, preset, columns, rows } = config;
+  const { cols, rows: gridRows } = getGridDimensions(columns, rows);
   const cellsPerSide = cols * rows;
 
   const totalOriginalPages = activePages.length;
@@ -245,28 +230,48 @@ export async function createImposedPDF(
   onProgress?.("Synthesizing output document...");
   const destDoc = await PDFDocument.create();
 
-  // Define physical page size: standard Letter (8.5" x 11" @ 72 dpi) is 612 x 792.
-  // Standard A4 is 595.27 x 841.89 points. Let's use standard Letter.
-  // If orientation is "landscape" (e.g. 2 pages per sheet), we invert width and height.
-  const { orientation, cols, rows } = getGridDimensions(config.pagesPerSheet);
-  const baseWidth = 612;
-  const baseHeight = 792;
+  let baseWidth = 595.28;
+  let baseHeight = 841.89; // A4 default
+
+  if (config.paperSize === "A3") {
+    baseWidth = 841.89;
+    baseHeight = 1190.55;
+  } else if (config.paperSize === "Letter") {
+    baseWidth = 612;
+    baseHeight = 792;
+  } else if (config.paperSize === "A5") {
+    baseWidth = 420.94;
+    baseHeight = 595.28;
+  }
+
+  let { orientation, cols, rows } = getGridDimensions(config.columns, config.rows);
+
+  // Auto-Flip for Landscape Slides (PPT Trap)
+  if (srcPages.length > 0) {
+    const firstPage = srcPages[0];
+    const cropBox = firstPage.getCropBox();
+    if (cropBox.width > cropBox.height) {
+      orientation = "landscape"; // Auto force landscape sheet for slide decks
+    }
+  }
 
   const pageWidth = orientation === "landscape" ? baseHeight : baseWidth;
   const pageHeight = orientation === "landscape" ? baseWidth : baseHeight;
 
   // Compute margin offset
-  let marginSize = 12; // compact default
-  if (config.margin === "none") marginSize = 0;
-  else if (config.margin === "standard") marginSize = 24;
-  else if (config.margin === "wide") marginSize = 40;
-
-  if (config.customMarginValue !== undefined && config.preset === "custom") {
-    marginSize = config.customMarginValue;
+  let mt = 12, mb = 12, ml = 12, mr = 12; // compact default
+  if (config.margin === "none") { mt = mb = ml = mr = 0; }
+  else if (config.margin === "standard") { mt = mb = ml = mr = 24; }
+  else if (config.margin === "wide") { mt = mb = ml = mr = 40; }
+  else if (config.margin === "custom") {
+    mt = config.customMargins?.top ?? 0;
+    mb = config.customMargins?.bottom ?? 0;
+    ml = config.customMargins?.left ?? 0;
+    mr = config.customMargins?.right ?? 0;
   }
 
-  const usableWidth = pageWidth - marginSize * 2;
-  const usableHeight = pageHeight - marginSize * 2;
+  const usableWidth = pageWidth - (ml + mr);
+  const usableHeight = pageHeight - (mt + mb);
 
   const cellWidth = usableWidth / cols;
   const cellHeight = usableHeight / rows;
@@ -283,7 +288,14 @@ export async function createImposedPDF(
     const srcIndex = pageNum - 1;
     if (srcIndex >= 0 && srcIndex < maxPages) {
       if (!embeddedPagesMap.has(pageNum)) {
-        const embedded = await destDoc.embedPage(srcPages[srcIndex]);
+        // Use getCropBox() to strip out invisible white bounds (e.g. PPT export borders)
+        const crop = srcPages[srcIndex].getCropBox();
+        const embedded = await destDoc.embedPage(srcPages[srcIndex], {
+          left: crop.x,
+          bottom: crop.y,
+          right: crop.x + crop.width,
+          top: crop.y + crop.height,
+        });
         embeddedPagesMap.set(pageNum, embedded);
       }
     }
@@ -321,8 +333,8 @@ export async function createImposedPDF(
     // Draw grid border lines if requested, or clean border outlines for print alignments
     // (A subtle gray grid makes notes extremely neat and easier to crop/cut!)
     pageObj.drawRectangle({
-      x: marginSize,
-      y: marginSize,
+      x: ml,
+      y: mb,
       width: usableWidth,
       height: usableHeight,
       borderColor: rgb(0.85, 0.85, 0.85),
@@ -338,10 +350,10 @@ export async function createImposedPDF(
       // Calculate cell bounding box
       // In PDF, target origin (0,0) is bottom-left!
       // So rows are counted upwards from bottom!
-      // Column `c` starts at left: `marginSize + c * cellWidth`
-      // Row `r` starts from top: `pageHeight - marginSize - (r + 1) * cellHeight`
-      const x = marginSize + c * cellWidth;
-      const y = pageHeight - marginSize - (r + 1) * cellHeight;
+      // Column `c` starts at left: `ml + c * cellWidth`
+      // Row `r` starts from top: `pageHeight - mt - (r + 1) * cellHeight`
+      const x = ml + c * cellWidth;
+      const y = pageHeight - mt - (r + 1) * cellHeight;
 
       // Draw light gray grid boundaries for each note segment
       pageObj.drawRectangle({
@@ -367,25 +379,71 @@ export async function createImposedPDF(
           const targetW = cellWidth - innerPad * 2;
           const targetH = cellHeight - innerPad * 2;
 
-          let scale = 1;
+          let shouldRotate = false;
+          let drawW = srcW;
+          let drawH = srcH;
+          let visualW = srcW;
+          let visualH = srcH;
+
           if (config.scaleToFit) {
-            scale = Math.min(targetW / srcW, targetH / srcH);
+            const scaleNormal = Math.min(targetW / srcW, targetH / srcH);
+            const areaNormal = Math.pow(scaleNormal, 2) * (srcW * srcH);
+
+            const scaleRotated = Math.min(targetW / srcH, targetH / srcW);
+            const areaRotated = Math.pow(scaleRotated, 2) * (srcW * srcH);
+
+            let scale = 1;
+            if (areaRotated > areaNormal) {
+              shouldRotate = true;
+              scale = scaleRotated;
+            } else {
+              shouldRotate = false;
+              scale = scaleNormal;
+            }
+
+            drawW = srcW * scale;
+            drawH = srcH * scale;
+            visualW = shouldRotate ? drawH : drawW;
+            visualH = shouldRotate ? drawW : drawH;
+          } else {
+            // Stretch to fill exactly (Aspect Ratio Unlocked)
+            const ratioNormal = srcW / srcH;
+            const ratioTarget = targetW / targetH;
+            const ratioRotated = srcH / srcW;
+            
+            if (Math.abs(ratioRotated - ratioTarget) < Math.abs(ratioNormal - ratioTarget)) {
+              shouldRotate = true;
+            }
+
+            visualW = targetW;
+            visualH = targetH;
+            drawW = shouldRotate ? targetH : targetW;
+            drawH = shouldRotate ? targetW : targetH;
           }
 
-          const drawW = srcW * scale;
-          const drawH = srcH * scale;
-
           // Center the embedded section inside the layout container
-          const drawX = x + (cellWidth - drawW) / 2;
-          const drawY = y + (cellHeight - drawH) / 2 + 3; // Nudge up to make room for cell page labels
+          const drawX = x + (cellWidth - visualW) / 2;
+          const drawY = y + (cellHeight - visualH) / 2 + 3; // Nudge up to make room for cell page labels
 
-          // Draw the embedded page
-          pageObj.drawPage(embedded, {
-            x: drawX,
-            y: drawY,
-            width: drawW,
-            height: drawH,
-          });
+          if (shouldRotate) {
+            // If rotated 90 degrees CCW, the original bottom-left (pivot) moves.
+            // To align the bottom-left of the visual rotated box to (drawX, drawY),
+            // we must set pivot x = drawX + visualW, and pivot y = drawY.
+            pageObj.drawPage(embedded, {
+              x: drawX + visualW,
+              y: drawY,
+              width: drawW,
+              height: drawH,
+              angle: degrees(90),
+            });
+          } else {
+            pageObj.drawPage(embedded, {
+              x: drawX,
+              y: drawY,
+              width: drawW,
+              height: drawH,
+            });
+          }
 
           // Draw a small sub-indicator of the original page number inside the cell padding area
           if (config.pageNumbersEnabled) {
@@ -449,7 +507,7 @@ export async function createImposedPDF(
     const footerWidth = fontRef.widthOfTextAtSize(footerText, footerSize);
     pageObj.drawText(footerText, {
       x: (pageWidth - footerWidth) / 2,
-      y: marginSize > 12 ? marginSize / 2 : 5,
+      y: mb > 12 ? mb / 2 : 5,
       size: footerSize,
       font: fontRef,
       color: rgb(0.4, 0.4, 0.4),

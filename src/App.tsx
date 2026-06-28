@@ -42,6 +42,7 @@ import HelpModal from "./components/HelpModal";
 import { Agentation } from "agentation";
 import { usePdfThumbnails } from "./utils/usePdfThumbnails";
 import { CinematicFooter } from "./components/ui/motion-footer";
+import { getPDFFromDB, savePDFToDB } from "./utils/indexedDB";
 
 const fallbackPlan: SubscriptionPlan = {
   id: "free",
@@ -79,10 +80,50 @@ const DEFAULT_CONFIG: ImpositionConfig = {
 };
 
 export default function App() {
-  const [config, setConfig] = useState<ImpositionConfig>(DEFAULT_CONFIG);
+  const [config, setConfig] = useState<ImpositionConfig>(() => {
+    try {
+      const saved = localStorage.getItem("imposer_config");
+      return saved ? JSON.parse(saved) : DEFAULT_CONFIG;
+    } catch {
+      return DEFAULT_CONFIG;
+    }
+  });
   const [pdfFileBytes, setPdfFileBytes] = useState<ArrayBuffer | null>(null);
-  const [pdfMetadata, setPdfMetadata] = useState<PDFMetadata | null>(null);
+  const [pdfMetadata, setPdfMetadata] = useState<PDFMetadata | null>(() => {
+    try {
+      const saved = localStorage.getItem("imposer_pdf_metadata");
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
   const [uploadLoading, setUploadLoading] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem("imposer_config", JSON.stringify(config));
+  }, [config]);
+
+  useEffect(() => {
+    if (pdfMetadata) {
+      localStorage.setItem("imposer_pdf_metadata", JSON.stringify(pdfMetadata));
+    } else {
+      localStorage.removeItem("imposer_pdf_metadata");
+    }
+  }, [pdfMetadata]);
+
+  useEffect(() => {
+    const loadPdfBytes = async () => {
+      try {
+        const bytes = await getPDFFromDB();
+        if (bytes) {
+          setPdfFileBytes(bytes);
+        }
+      } catch (err) {
+        console.error("Failed to load PDF from IndexedDB", err);
+      }
+    };
+    loadPdfBytes();
+  }, []);
   const [uploadProgress, setUploadProgress] = useState(0);
   
   // Extract PDF Thumbnails dynamically
@@ -436,6 +477,7 @@ export default function App() {
             }
 
             setPdfFileBytes(bytes);
+            savePDFToDB(bytes);
             setPdfMetadata({
               name: file.name,
               size: file.size,
@@ -715,6 +757,7 @@ export default function App() {
     setPdfFileBytes(null);
     setPdfMetadata(null);
     setCompileSuccessText(null);
+    savePDFToDB(null);
   };
 
   // Dynamic on-render plate sheet arrays

@@ -1,11 +1,29 @@
 import React, { useState } from 'react';
-import { X, HelpCircle, BookOpen, Layers, Settings2, CreditCard, ChevronDown, CheckCircle2, FileText, Sparkles, Download, ExternalLink } from 'lucide-react';
+import { X, HelpCircle, BookOpen, Layers, Settings2, CreditCard, ChevronDown, CheckCircle2, FileText, Sparkles, Download, ExternalLink, PlayCircle } from 'lucide-react';
 
 interface HelpModalProps {
   onClose: () => void;
 }
 
 const faqs = [
+  {
+    id: 'video-manual',
+    title: 'Video Guide: How to use DuplexPro',
+    icon: <PlayCircle size={18} className="text-red-500" />,
+    content: (
+      <div className="space-y-3 text-sm text-slate-600">
+        <p>Watch this quick walkthrough to see exactly how to upload, configure, and print your PDFs efficiently.</p>
+        <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-900 shadow-inner w-full aspect-video">
+          <video 
+            src="/DuplexPro.mp4" 
+            controls 
+            className="w-full h-full"
+            preload="metadata"
+          />
+        </div>
+      </div>
+    )
+  },
   {
     id: 'getting-started',
     title: 'Getting Started',

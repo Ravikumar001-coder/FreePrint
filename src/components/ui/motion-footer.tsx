@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { cn } from "../../lib/utils";
-import { Apple, Smartphone, ChevronUp } from "lucide-react";
+import { FileText, Sparkles, ChevronUp } from "lucide-react";
 
 // Register ScrollTrigger safely for React
 if (typeof window !== "undefined") {
@@ -212,10 +212,10 @@ MagneticButton.displayName = "MagneticButton";
 // -------------------------------------------------------------------------
 const MarqueeItem = () => (
   <div className="flex items-center space-x-12 px-6">
-    <span>Accountability Redefined</span> <span className="text-primary/60">✦</span>
-    <span>Transparent Tracking</span> <span className="text-secondary/60">✦</span>
-    <span>12-Step Progress</span> <span className="text-primary/60">✦</span>
-    <span>Sponsor Connection</span> <span className="text-secondary/60">✦</span>
+    <span>Smart PDF Imposition</span> <span className="text-primary/60">✦</span>
+    <span>AI Note Optimization</span> <span className="text-secondary/60">✦</span>
+    <span>Seamless CloudConvert</span> <span className="text-primary/60">✦</span>
+    <span>Rapid Document Merging</span> <span className="text-secondary/60">✦</span>
     <span>Absolute Privacy</span> <span className="text-primary/60">✦</span>
   </div>
 );
@@ -313,7 +313,7 @@ export function CinematicFooter() {
             ref={giantTextRef}
             className="footer-giant-bg-text absolute -bottom-[5vh] left-1/2 -translate-x-1/2 whitespace-nowrap z-0 pointer-events-none select-none"
           >
-            SOBERS
+            PDF IMPOSER
           </div>
 
           {/* 1. Diagonal Sleek Marquee (Top of footer) */}
@@ -330,21 +330,21 @@ export function CinematicFooter() {
               ref={headingRef}
               className="text-5xl md:text-8xl font-black footer-text-glow tracking-tighter mb-12 text-center"
             >
-              Ready to begin?
+              Ready to optimize?
             </h2>
 
             {/* Interactive Magnetic Pills Layout */}
             <div ref={linksRef} className="flex flex-col items-center gap-6 w-full">
               {/* App Store Links (Primary) */}
               <div className="flex flex-wrap justify-center gap-4 w-full">
-                <MagneticButton as="a" href={links.link_ios || "#"} className="footer-glass-pill px-10 py-5 rounded-full text-foreground font-bold text-sm md:text-base flex items-center gap-3 group">
-                  <Apple className="w-6 h-6 text-muted-foreground group-hover:text-foreground transition-colors" />
-                  Download iOS
+                <MagneticButton as="button" onClick={scrollToTop} className="footer-glass-pill px-10 py-5 rounded-full text-foreground font-bold text-sm md:text-base flex items-center gap-3 group">
+                  <FileText className="w-6 h-6 text-muted-foreground group-hover:text-foreground transition-colors" />
+                  Impose PDFs
                 </MagneticButton>
                 
-                <MagneticButton as="a" href={links.link_android || "#"} className="footer-glass-pill px-10 py-5 rounded-full text-foreground font-bold text-sm md:text-base flex items-center gap-3 group">
-                  <Smartphone className="w-6 h-6 text-muted-foreground group-hover:text-foreground transition-colors" />
-                  Download Android
+                <MagneticButton as="a" href="#ai_notes_optimiser_panel" className="footer-glass-pill px-10 py-5 rounded-full text-foreground font-bold text-sm md:text-base flex items-center gap-3 group">
+                  <Sparkles className="w-6 h-6 text-muted-foreground group-hover:text-foreground transition-colors" />
+                  Optimize Notes
                 </MagneticButton>
               </div>
 
@@ -368,15 +368,15 @@ export function CinematicFooter() {
             
             {/* Copyright */}
             <div className="text-muted-foreground text-[10px] md:text-xs font-semibold tracking-widest uppercase order-2 md:order-1">
-              © 2026 Volvox. All rights reserved.
+              © 2026 duplexpro.indocreonix. All rights reserved.
             </div>
 
             {/* "Made with Love" Badge */}
             <div className="footer-glass-pill px-6 py-3 rounded-full flex items-center gap-2 order-1 md:order-2 cursor-default border-border/50">
               <span className="text-muted-foreground text-[10px] md:text-xs font-bold uppercase tracking-widest">Crafted with</span>
               <span className="animate-footer-heartbeat text-sm md:text-base text-destructive">❤</span>
-              <span className="text-muted-foreground text-[10px] md:text-xs font-bold uppercase tracking-widest">by</span>
-              <span className="text-foreground font-black text-xs md:text-sm tracking-normal ml-1">Volvox</span>
+              <span className="text-muted-foreground text-[10px] md:text-xs font-bold uppercase tracking-widest">for</span>
+              <span className="text-foreground font-black text-xs md:text-sm tracking-normal ml-1">Productivity</span>
             </div>
 
             {/* Back to top */}

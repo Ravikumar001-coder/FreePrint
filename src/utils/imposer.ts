@@ -230,6 +230,19 @@ export async function createImposedPDF(
   onProgress?.("Synthesizing output document...");
   const destDoc = await PDFDocument.create();
 
+  let watermarkImage: any = null;
+  if (config.watermark.enabled) {
+    try {
+      const resp = await fetch('/watermark.png');
+      if (resp.ok) {
+        const imgBytes = await resp.arrayBuffer();
+        watermarkImage = await destDoc.embedPng(imgBytes);
+      }
+    } catch (e) {
+      console.warn("Could not load watermark image", e);
+    }
+  }
+
   let baseWidth = 595.28;
   let baseHeight = 841.89; // A4 default
 
@@ -477,6 +490,30 @@ export async function createImposedPDF(
     }
 
     // 2. Overlay Global Watermark
+    if (config.watermark.enabled && watermarkImage) {
+      const opacity = config.watermark.opacity || 0.15;
+      
+      const centerX = pageWidth / 2;
+      const centerY = pageHeight / 2;
+
+      const imgW = watermarkImage.width;
+      const imgH = watermarkImage.height;
+      
+      // Scale watermark to fit about 50% of the page width
+      const targetW = pageWidth * 0.5;
+      const scale = targetW / imgW;
+      const drawW = imgW * scale;
+      const drawH = imgH * scale;
+
+      pageObj.drawImage(watermarkImage, {
+        x: centerX - drawW / 2,
+        y: centerY - drawH / 2,
+        width: drawW,
+        height: drawH,
+        opacity: opacity,
+      });
+    } 
+    
     if (config.watermark.enabled && config.watermark.text) {
       const wText = config.watermark.text.toUpperCase();
       const wSize = config.watermark.size || 34;

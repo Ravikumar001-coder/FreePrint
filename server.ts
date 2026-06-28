@@ -613,7 +613,18 @@ app.post('/api/auth/reset-password', async (req, res) => {
 app.get('/api/admin/users', authenticateToken, requireRole('admin'), async (req: any, res: any) => {
   try {
     const users = await prisma.user.findMany({
-      select: { user_id: true, email: true, username: true, full_name: true, status: true, created_at: true, role: true, subscription_id: true }
+      select: { 
+        user_id: true, 
+        email: true, 
+        username: true, 
+        full_name: true, 
+        status: true, 
+        created_at: true, 
+        role: true, 
+        subscription_id: true,
+        credit_balance: true,
+        _count: { select: { generated_pdfs: true, processing_jobs: true } }
+      }
     });
     res.json(users);
   } catch (error) {
@@ -751,6 +762,38 @@ app.post('/api/commerce/buy-credits', authenticateToken, async (req: any, res: a
     });
 
     res.json({ success: true, new_balance: updatedUser.credit_balance });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// PATCH /api/admin/users/:id/credits - Manually set user credits
+app.patch('/api/admin/users/:id/credits', authenticateToken, requireRole('admin'), async (req: any, res: any) => {
+  try {
+    const { id } = req.params;
+    const { new_balance } = req.body;
+    
+    if (typeof new_balance !== 'number' || new_balance < 0) {
+      return res.status(400).json({ error: "Invalid credit balance provided" });
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { user_id: id },
+      data: { credit_balance: new_balance }
+    });
+
+    await writeAuditLog({
+      user_id: req.user.id,
+      action_type: 'UPDATE',
+      action_category: 'USER_MANAGEMENT',
+      table_name: 'User',
+      record_id: id,
+      new_values: { credit_balance: new_balance },
+      severity: 'info'
+    });
+
+    res.json({ success: true, new_balance: updatedUser.credit_balance, user: updatedUser });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Server error" });
@@ -2056,7 +2099,25 @@ app.post("/api/notes/analyze", async (req, res) => {
   }
 });
 
-// Removed duplicate /api/jobs/track
+// GET /api/settings/footer — public route for footer links
+app.get('/api/settings/footer', async (req: any, res: any) => {
+  try {
+    const settings = await prisma.siteSetting.findMany({
+      where: {
+        key: {
+          in: ['link_ios', 'link_android', 'link_privacy', 'link_terms', 'link_support']
+        }
+      }
+    });
+    // Convert array to a key-value map
+    const settingsMap = settings.reduce((acc: any, curr: any) => ({...acc, [curr.key]: curr.value}), {});
+    res.json(settingsMap);
+  } catch (err: any) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 // ════════════════════════════════════════════════════════════════════════════
 // TERMINAL STARTUP DASHBOARD
 // ════════════════════════════════════════════════════════════════════════════

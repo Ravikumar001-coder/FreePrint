@@ -150,6 +150,23 @@ async function main() {
     });
   }
   console.log("Coupons seeded.");
+  // Seed Site Settings (Footer Links)
+  const settings = [
+    { key: 'link_ios', value: '#ios' },
+    { key: 'link_android', value: '#android' },
+    { key: 'link_privacy', value: '/privacy' },
+    { key: 'link_terms', value: '/terms' },
+    { key: 'link_support', value: '/support' }
+  ];
+
+  for (const s of settings) {
+    await prisma.siteSetting.upsert({
+      where: { key: s.key },
+      update: {},
+      create: s,
+    });
+  }
+  console.log("Site settings seeded.");
   
   console.log("Seeding complete!");
 }

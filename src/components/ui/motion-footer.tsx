@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { cn } from "../../lib/utils";
@@ -225,6 +225,17 @@ export function CinematicFooter() {
   const giantTextRef = useRef<HTMLDivElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const linksRef = useRef<HTMLDivElement>(null);
+  
+  const [links, setLinks] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    fetch('/api/settings/footer')
+      .then(res => res.json())
+      .then(data => {
+        if (!data.error) setLinks(data);
+      })
+      .catch(console.error);
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -326,12 +337,12 @@ export function CinematicFooter() {
             <div ref={linksRef} className="flex flex-col items-center gap-6 w-full">
               {/* App Store Links (Primary) */}
               <div className="flex flex-wrap justify-center gap-4 w-full">
-                <MagneticButton as="a" href="#" className="footer-glass-pill px-10 py-5 rounded-full text-foreground font-bold text-sm md:text-base flex items-center gap-3 group">
+                <MagneticButton as="a" href={links.link_ios || "#"} className="footer-glass-pill px-10 py-5 rounded-full text-foreground font-bold text-sm md:text-base flex items-center gap-3 group">
                   <Apple className="w-6 h-6 text-muted-foreground group-hover:text-foreground transition-colors" />
                   Download iOS
                 </MagneticButton>
                 
-                <MagneticButton as="a" href="#" className="footer-glass-pill px-10 py-5 rounded-full text-foreground font-bold text-sm md:text-base flex items-center gap-3 group">
+                <MagneticButton as="a" href={links.link_android || "#"} className="footer-glass-pill px-10 py-5 rounded-full text-foreground font-bold text-sm md:text-base flex items-center gap-3 group">
                   <Smartphone className="w-6 h-6 text-muted-foreground group-hover:text-foreground transition-colors" />
                   Download Android
                 </MagneticButton>
@@ -339,13 +350,13 @@ export function CinematicFooter() {
 
               {/* Secondary Text Links */}
               <div className="flex flex-wrap justify-center gap-3 md:gap-6 w-full mt-2">
-                <MagneticButton as="a" href="#" className="footer-glass-pill px-6 py-3 rounded-full text-muted-foreground font-medium text-xs md:text-sm hover:text-foreground">
+                <MagneticButton as="a" href={links.link_privacy || "#"} className="footer-glass-pill px-6 py-3 rounded-full text-muted-foreground font-medium text-xs md:text-sm hover:text-foreground">
                   Privacy Policy
                 </MagneticButton>
-                <MagneticButton as="a" href="#" className="footer-glass-pill px-6 py-3 rounded-full text-muted-foreground font-medium text-xs md:text-sm hover:text-foreground">
+                <MagneticButton as="a" href={links.link_terms || "#"} className="footer-glass-pill px-6 py-3 rounded-full text-muted-foreground font-medium text-xs md:text-sm hover:text-foreground">
                   Terms of Service
                 </MagneticButton>
-                <MagneticButton as="a" href="#" className="footer-glass-pill px-6 py-3 rounded-full text-muted-foreground font-medium text-xs md:text-sm hover:text-foreground">
+                <MagneticButton as="a" href={links.link_support || "#"} className="footer-glass-pill px-6 py-3 rounded-full text-muted-foreground font-medium text-xs md:text-sm hover:text-foreground">
                   Support
                 </MagneticButton>
               </div>

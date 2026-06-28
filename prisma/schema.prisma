@@ -529,3 +529,14 @@ model AuditLog {
   
   created_at          DateTime     @default(now())
 }
+
+// ----------------------------------------------------------------------------
+// settings SCHEMA
+// ----------------------------------------------------------------------------
+
+model SiteSetting {
+  key         String   @id
+  value       String
+  description String?
+  updated_at  DateTime @default(now()) @updatedAt
+}

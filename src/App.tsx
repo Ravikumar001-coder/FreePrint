@@ -151,6 +151,9 @@ export default function App() {
   });
   const [authToken, setAuthToken] = useState<string | null>(() => localStorage.getItem("imposer_token") || null);
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
+  const [currentPlanId, setCurrentPlanId] = useState<string>(() => {
+    return localStorage.getItem("imposer_current_plan_id") || "free";
+  });
 
   const mobileMenuRef = useRef<HTMLDivElement>(null);
   const mobileMenuToggleRef = useRef<HTMLButtonElement>(null);
@@ -189,10 +192,15 @@ export default function App() {
   useEffect(() => {
     if (currentUser) {
       localStorage.setItem("imposer_user", JSON.stringify(currentUser));
+      if (currentUser.subscription_id && currentUser.subscription_id !== currentPlanId) {
+        setCurrentPlanId(currentUser.subscription_id);
+      } else if (currentUser.plan_id && currentUser.plan_id !== currentPlanId) {
+        setCurrentPlanId(currentUser.plan_id);
+      }
     } else {
       localStorage.removeItem("imposer_user");
     }
-  }, [currentUser]);
+  }, [currentUser, currentPlanId]);
 
   useEffect(() => {
     if (authToken) {
@@ -308,9 +316,7 @@ export default function App() {
 
   const [couponCodes, setCouponCodes] = useState<CouponCode[]>([]);
 
-  const [currentPlanId, setCurrentPlanId] = useState<string>(() => {
-    return localStorage.getItem("imposer_current_plan_id") || "free";
-  });
+
 
   const [appliedCoupon, setAppliedCoupon] = useState<CouponCode | null>(null);
   const [subscriptionCoupon, setSubscriptionCoupon] = useState<CouponCode | null>(null);
@@ -472,7 +478,7 @@ export default function App() {
             
             // Check active plan constraint and warn
             const activePlan = subscriptionPlans.find(p => p.id === currentPlanId) || subscriptionPlans[0] || fallbackPlan;
-            if (pCount > activePlan.maxPagesLimit) {
+            if (activePlan.maxPagesLimit > 0 && pCount > activePlan.maxPagesLimit) {
               alert(`File Limit Warning: This document contains ${pCount} pages, which exceeds your active subscription plan "${activePlan.name}" limit of ${activePlan.maxPagesLimit} pages. You can view the file details, but to compile and download its imposition plate, you must switch your simulated plan in the "System Admin Console" tab or reduce pages in the subset selector!`);
             }
 
@@ -603,7 +609,7 @@ export default function App() {
     // Validate subscription plan page limit before processing
     const activePlan = subscriptionPlans.find(p => p.id === currentPlanId) || subscriptionPlans[0] || fallbackPlan;
     const targetPageCount = pdfMetadata ? pdfMetadata.pageCount : 16;
-    if (targetPageCount > activePlan.maxPagesLimit) {
+    if (activePlan.maxPagesLimit > 0 && targetPageCount > activePlan.maxPagesLimit) {
       alert(`Access Blocked: Your active student subscription plan ("${activePlan.name}") covers up to ${activePlan.maxPagesLimit} pages. Your file contains ${targetPageCount} pages. Please switch your active plan in the "System Admin Console" to double your limits!`);
       return;
     }
@@ -770,7 +776,7 @@ export default function App() {
       {/* 1. BRAND HEADER */}
       <header className="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-4 sm:px-6 shrink-0 z-30 shadow-xs" id="brand_header">
         <div className="flex items-center gap-3">
-          <img src="/logo.png" alt="DuplexPro Logo" className="h-10 w-auto object-contain drop-shadow-sm scale-110 -ml-1" />
+          <img src="/watermark.png" alt="Indocreonix Logo" className="h-10 w-auto object-contain drop-shadow-sm scale-110 -ml-1" />
           <div>
             <h1 className="text-sm sm:text-base font-extrabold tracking-tight text-slate-800 flex items-center gap-1.5">
               DuplexPro <span className="text-indigo-500 font-medium text-xs">v2.1</span>
@@ -960,6 +966,7 @@ export default function App() {
               loading={uploadLoading}
               uploadProgress={uploadProgress}
               onApplyPreset={handleApplyPreset}
+              isFreePlan={currentPlanId === 'free' || !currentPlanId || (subscriptionPlans.find(p => p.id === currentPlanId) || fallbackPlan).pricePerMonth === 0}
             />
             
             <PdfPreview pdfFileBytes={pdfFileBytes} />

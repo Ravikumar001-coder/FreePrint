@@ -32,7 +32,9 @@ import {
   Shield,
   Ban,
   RefreshCw,
-  Gift
+  Gift,
+  ChevronDown,
+  ChevronUp
 } from "lucide-react";
 import { SubscriptionPlan, CouponCode } from "../types";
 
@@ -176,6 +178,17 @@ export default function AdminPanel({
     customFreeCredits: number;
     customDescription: string;
   } | null>(null);
+  const [editCreditsModal, setEditCreditsModal] = useState<{ userId: string; currentCredits: number; newCredits: number } | null>(null);
+  
+  const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
+  const toggleUserExpanded = (userId: string) => {
+    setExpandedUsers(prev => {
+      const next = new Set(prev);
+      if (next.has(userId)) next.delete(userId);
+      else next.add(userId);
+      return next;
+    });
+  };
 
   const fetchUsers = useCallback(async () => {
     if (!authToken) return;
@@ -286,6 +299,30 @@ export default function AdminPanel({
     } finally {
       setUserActionLoading(null);
       setConfirmModal(null);
+    }
+  };
+
+  const handleEditCredits = async () => {
+    if (!editCreditsModal) return;
+    setUserActionLoading(editCreditsModal.userId);
+    try {
+      const res = await fetch(`/api/admin/users/${editCreditsModal.userId}/credits`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+        body: JSON.stringify({ new_balance: editCreditsModal.newCredits })
+      });
+      if (res.ok) {
+        triggerToast(`User's credits successfully updated.`);
+        await fetchUsers();
+      } else {
+        const d = await res.json();
+        triggerToast(`Error: ${d.error || 'Failed to update user credits.'}`);
+      }
+    } catch (err) {
+      triggerToast('Network error. Could not update user credits.');
+    } finally {
+      setUserActionLoading(null);
+      setEditCreditsModal(null);
     }
   };
 
@@ -963,7 +1000,9 @@ export default function AdminPanel({
                           <span className="font-bold font-mono text-slate-500 whitespace-nowrap">pages</span>
                         </div>
                       ) : (
-                        <span className="font-bold text-slate-800">{plan.maxPagesLimit} pages / run</span>
+                        <span className="font-bold text-slate-800">
+                          {plan.maxPagesLimit === 0 ? 'Unlimited' : plan.maxPagesLimit} pages / run
+                        </span>
                       )}
                     </div>
 
@@ -1488,6 +1527,56 @@ export default function AdminPanel({
         </div>
       )}
 
+      {/* ── EDIT CREDITS MODAL ── */}
+      {editCreditsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-emerald-100 text-emerald-600 rounded-xl">
+                <UserCog size={18} />
+              </div>
+              <h3 className="text-sm font-bold text-slate-800">Manage Credits</h3>
+            </div>
+            
+            <div className="mb-5 flex flex-col gap-3">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-500 font-bold uppercase">Current Credits:</span>
+                <span className="font-mono text-slate-700 font-bold">{editCreditsModal.currentCredits}</span>
+              </div>
+              
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold uppercase text-slate-500">New Credit Balance</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={editCreditsModal.newCredits}
+                  onChange={e => setEditCreditsModal({...editCreditsModal, newCredits: parseInt(e.target.value) || 0})}
+                  className="w-full text-sm border border-slate-200 rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2 w-full">
+              <button
+                onClick={() => setEditCreditsModal(null)}
+                className="flex-1 py-2 rounded-xl text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors"
+                disabled={userActionLoading === editCreditsModal.userId}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleEditCredits}
+                className="flex-1 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition-colors"
+                disabled={userActionLoading === editCreditsModal.userId}
+              >
+                {userActionLoading === editCreditsModal.userId ? 'Saving...' : 'Save Credits'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── SEND COUPON MODAL ── */}
       {sendCouponModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
@@ -1741,7 +1830,7 @@ export default function AdminPanel({
                           onChange={e => setPromoteSubscriptionId(prev => ({ ...prev, [u.user_id]: e.target.value }))}
                           className="text-[10px] border border-slate-200 rounded-lg p-1 bg-white cursor-pointer focus:ring-1 focus:ring-indigo-500 max-w-[110px]"
                         >
-                          <option value="free" disabled>Select plan...</option>
+                          <option value="" disabled>Select plan...</option>
                           {subscriptionPlans.map(p => (
                             <option key={p.id} value={p.id}>{p.name}</option>
                           ))}
@@ -1810,9 +1899,55 @@ export default function AdminPanel({
                         >
                           <RefreshCw size={12} /> Reset Credits
                         </button>
+                        <button
+                          onClick={() => setEditCreditsModal({ userId: u.user_id, currentCredits: u.credit_balance || 0, newCredits: u.credit_balance || 0 })}
+                          disabled={userActionLoading === u.user_id || u.status !== 'active'}
+                          className="flex-1 flex justify-center items-center gap-1.5 text-[10px] bg-emerald-100 hover:bg-emerald-200 text-emerald-700 font-bold px-2 py-1.5 rounded-lg cursor-pointer transition-colors disabled:opacity-50 shadow-sm"
+                          title="Manually set user's credit balance"
+                        >
+                          <UserCog size={12} /> Manage Credits
+                        </button>
                       </div>
                     </div>
                   </div>
+                  
+                  {/* Toggle Usage Info */}
+                  <div className="pt-2 border-t border-slate-100 flex justify-between items-center">
+                    <button
+                      onClick={() => toggleUserExpanded(u.user_id)}
+                      className="text-[10px] text-slate-500 hover:text-indigo-600 font-bold uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-colors"
+                    >
+                      {expandedUsers.has(u.user_id) ? (
+                        <><ChevronUp size={12} /> Hide Usage Stats</>
+                      ) : (
+                        <><ChevronDown size={12} /> View Usage Stats</>
+                      )}
+                    </button>
+                  </div>
+                  
+                  {expandedUsers.has(u.user_id) && (
+                    <div className="bg-indigo-50/50 p-2.5 rounded-lg border border-indigo-100/50 flex flex-col gap-2 mt-1 animate-fade-in">
+                      <div className="flex justify-between items-center text-[10px]">
+                        <span className="text-slate-500 font-bold uppercase">Credit Balance</span>
+                        <span className="font-mono text-indigo-700 font-black">{u.credit_balance ?? '—'}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-[10px]">
+                        <span className="text-slate-500 font-bold uppercase">PDFs Generated</span>
+                        <span className="font-mono text-slate-700 font-black">{u._count?.generated_pdfs ?? 0}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-[10px]">
+                        <span className="text-slate-500 font-bold uppercase">Processing Jobs</span>
+                        <span className="font-mono text-slate-700 font-black">{u._count?.processing_jobs ?? 0}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-[10px] border-t border-indigo-100/40 pt-1.5 mt-0.5">
+                        <span className="text-slate-500 font-bold uppercase">Current Plan</span>
+                        <span className="font-mono text-indigo-700 font-bold">
+                          {subscriptionPlans.find(p => p.id === (u.subscription_id || 'free'))?.name || u.subscription_id || 'Free Student'}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  
                 </div>
               </div>
             ))}

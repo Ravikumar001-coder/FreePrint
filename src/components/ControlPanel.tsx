@@ -17,7 +17,11 @@ import {
   AlertCircle,
   Hash,
   Sparkles,
-  ChevronDown
+  Maximize,
+  CheckCircle,
+  ChevronUp,
+  ChevronDown,
+  Lock
 } from "lucide-react";
 import { ImpositionConfig, PresetMode, PagesPerSheet, MarginOption, DuplexMode, PaperSize } from "../types";
 
@@ -29,6 +33,7 @@ interface ControlPanelProps {
   loading: boolean;
   uploadProgress: number;
   onApplyPreset: (preset: PresetMode) => void;
+  isFreePlan?: boolean;
 }
 
 export default function ControlPanel({
@@ -39,6 +44,7 @@ export default function ControlPanel({
   loading,
   uploadProgress,
   onApplyPreset,
+  isFreePlan,
 }: ControlPanelProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragActive, setDragActive] = useState(false);
@@ -85,7 +91,8 @@ export default function ControlPanel({
         });
         
         const pdfBytes = await pdfDoc.save();
-        const pdfFile = new File([pdfBytes], file.name.replace(/\.[^/.]+$/, "") + ".pdf", { type: "application/pdf" });
+        const pdfBlob = new Blob([pdfBytes], { type: "application/pdf" });
+        const pdfFile = new File([pdfBlob], file.name.replace(/\.[^/.]+$/, "") + ".pdf", { type: "application/pdf" });
         return await onUploadPDF(pdfFile);
       } catch (err) {
         setErrorText("Failed to convert image to PDF.");
@@ -582,7 +589,16 @@ export default function ControlPanel({
         )}
 
         {/* Watermarking Controls */}
-        <div className="border-t border-gray-50 pt-3 flex flex-col gap-3">
+        <div className="border-t border-gray-50 pt-3 flex flex-col gap-3 relative">
+          {isFreePlan && (
+            <div className="absolute inset-0 top-3 z-10 flex items-center justify-center rounded-lg border-2 border-dashed border-amber-300 bg-transparent cursor-not-allowed group">
+              <div className="bg-white p-2 rounded-xl shadow-md border border-amber-100 text-center flex flex-col items-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 absolute">
+                <Lock size={16} className="text-amber-500 mb-0.5" />
+                <p className="text-[10px] font-bold text-slate-700">Pro Feature</p>
+                <p className="text-[9px] text-slate-500">Upgrade to customize or remove watermarks.</p>
+              </div>
+            </div>
+          )}
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-gray-700">Security / Institution Watermark</span>
             <input

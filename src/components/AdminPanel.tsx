@@ -1403,6 +1403,57 @@ export default function AdminPanel({
           </div>
         </div>
 
+        {/* SECTION C: MANAGE USER MANUAL */}
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex flex-col gap-4">
+          <div className="flex justify-between items-center pb-3 border-b border-slate-50">
+            <div>
+              <h3 className="text-xs font-black uppercase text-slate-800 tracking-wider flex items-center gap-1.5">
+                <HelpCircle size={14} className="text-slate-500" />
+                User Manual Configuration
+              </h3>
+              <p className="text-[10px] text-slate-400">Upload a new PDF to update the Help Section manual.</p>
+            </div>
+          </div>
+          <div className="flex flex-col gap-3">
+            <label className="text-[9px] font-bold text-slate-500 uppercase">Upload PDF Manual</label>
+            <input 
+              type="file" 
+              accept="application/pdf"
+              onChange={async (e) => {
+                if (!e.target.files || e.target.files.length === 0) return;
+                const file = e.target.files[0];
+                const formData = new FormData();
+                formData.append("manual", file);
+                
+                try {
+                  const res = await fetch('/api/admin/manual', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${authToken}` },
+                    body: formData
+                  });
+                  if (res.ok) {
+                    triggerToast("User manual updated successfully!");
+                    e.target.value = ''; // Reset input after successful upload
+                  } else {
+                    let errorMessage = "Failed to upload manual.";
+                    try {
+                      const data = await res.json();
+                      errorMessage = data.error || errorMessage;
+                    } catch (parseErr) {
+                      errorMessage = `Server returned ${res.status}: ${res.statusText}`;
+                    }
+                    alert(errorMessage);
+                  }
+                } catch (err: any) {
+                  alert(err.message || "Network error.");
+                }
+              }}
+              className="text-xs rounded-lg border border-slate-200 p-2 bg-white focus:ring-1 focus:ring-indigo-500 file:mr-4 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-[10px] file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
+            />
+            <p className="text-[10px] text-slate-400 italic">This will instantly overwrite the existing manual across the platform.</p>
+          </div>
+        </div>
+
       </div>
       {/* ── CONFIRM ACTION MODAL ── */}
       {confirmModal && (

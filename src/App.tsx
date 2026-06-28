@@ -38,8 +38,10 @@ import HistoryPanel from "./components/HistoryPanel";
 import PdfPreview from "./components/PdfPreview";
 import NotificationsPanel from "./components/NotificationsPanel";
 import PlanSelectionModal from "./components/PlanSelectionModal";
+import HelpModal from "./components/HelpModal";
 import { Agentation } from "agentation";
 import { usePdfThumbnails } from "./utils/usePdfThumbnails";
+import { CinematicFooter } from "./components/ui/motion-footer";
 
 const fallbackPlan: SubscriptionPlan = {
   id: "free",
@@ -97,6 +99,7 @@ export default function App() {
   // AUTH STATE
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(() => {
     try {
       const saved = localStorage.getItem("imposer_user");
@@ -545,7 +548,7 @@ export default function App() {
     }
 
     const docBytes = await doc.save();
-    return docBytes.buffer;
+    return docBytes.slice().buffer;
   };
 
   // Compile and Trigger Save or Print of the final Imposed notes PDF document
@@ -575,7 +578,8 @@ export default function App() {
           pages_processed: targetPageCount,
           preset: config.preset,
           is_unwatermarked: !config.watermark.enabled,
-          is_ai_requested: false // AI costs handled separately
+          is_ai_requested: false, // AI costs handled separately
+          sheets_saved: Math.max(0, targetPageCount - sheets.length)
         })
       });
       const data = await res.json();
@@ -641,7 +645,8 @@ export default function App() {
       }
 
       // Prepare save blob
-      const blob = new Blob([compiledPdf], { type: "application/pdf" });
+      const exactBuffer = compiledPdf.slice().buffer;
+      const blob = new Blob([exactBuffer], { type: "application/pdf" });
       const blobUrl = URL.createObjectURL(blob);
       
       if (action === 'download') {
@@ -677,10 +682,25 @@ export default function App() {
 
         setCompileSuccessText(
           pdfMetadata 
-            ? `Successfully compiled "${pdfMetadata.name}". Opening Print Dialog...`
-            : "Successfully compiled Demo Notebook. Opening Print Dialog..."
+            ? `Successfully compiled and printed "${pdfMetadata.name}" as an optimized ${config.pagesPerSheet}-page plate!`
+            : "Successfully compiled and printed 16-page Imposed Demo Notebook!"
         );
       }
+
+      // Refresh User Stats to update global scorecard
+      if (authToken) {
+        try {
+          const resStats = await fetch('/api/users/me/stats', {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+          });
+          if (resStats.ok) {
+            setUserStats(await resStats.json());
+          }
+        } catch (err) {
+          console.error("Failed to update user stats", err);
+        }
+      }
+
     } catch (err: any) {
       console.error("Compilation error:", err);
       alert(`Fail during imposition layout compilation: ${err.message || err}`);
@@ -707,12 +727,10 @@ export default function App() {
       {/* 1. BRAND HEADER */}
       <header className="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-4 sm:px-6 shrink-0 z-30 shadow-xs" id="brand_header">
         <div className="flex items-center gap-3">
-          <div className="bg-indigo-600 w-8 h-8 rounded flex items-center justify-center text-white">
-            <Printer size={18} className="animate-pulse" />
-          </div>
+          <img src="/logo.png" alt="DuplexPro Logo" className="h-10 w-auto object-contain drop-shadow-sm scale-110 -ml-1" />
           <div>
-            <h1 className="text-sm sm:text-base font-bold tracking-tight text-slate-800 flex items-center gap-1.5">
-              SmartPrint Imposer <span className="text-indigo-500 font-medium text-xs">v2.1</span>
+            <h1 className="text-sm sm:text-base font-extrabold tracking-tight text-slate-800 flex items-center gap-1.5">
+              DuplexPro <span className="text-indigo-500 font-medium text-xs">v2.1</span>
             </h1>
             <p className="text-[9px] text-indigo-600 font-bold font-mono tracking-wider -mt-0.5">
               HIGH DENSITY REVISION LAYOUTS
@@ -1019,6 +1037,7 @@ export default function App() {
               setAppliedCoupon={setAppliedCoupon}
               couponCodes={couponCodes}
               currentUser={currentUser}
+              userStats={userStats}
               onDiscountVoucherApplied={handleDiscountVoucherApplied}
             />
           </div>
@@ -1026,10 +1045,7 @@ export default function App() {
       )}
 
       {/* 4. PHYSICAL APPLET FOOTER */}
-      <footer className="bg-white border-t border-gray-100 p-6 text-center text-[10px] text-gray-400 font-mono mt-12 select-none" id="applet_footer">
-        <p className="font-semibold text-gray-500">PDF IMPOSTER & SMART NOTES PRINTER — ACADEMIC OPTIMIZER</p>
-        <p className="mt-1">Designed with React / Vite / pdf-lib / Gemini 3.5 AI</p>
-      </footer>
+      <CinematicFooter />
 
       <AuthModal 
         isOpen={authModalOpen} 
@@ -1058,6 +1074,19 @@ export default function App() {
           }}
         />
       )}
+
+      {/* Floating Help Button */}
+      <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end animate-fade-in">
+        <button
+          onClick={() => setShowHelp(true)}
+          className="bg-indigo-600 hover:bg-indigo-700 text-white p-3.5 rounded-full shadow-lg shadow-indigo-600/30 flex items-center justify-center transition-transform hover:scale-110 active:scale-95 cursor-pointer"
+          aria-label="Help"
+        >
+          <HelpCircle size={24} />
+        </button>
+      </div>
+
+      {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
 
       {/* Agentation — dev-only UI annotation tool for AI agents */}
       {process.env.NODE_ENV === "development" && <Agentation />}

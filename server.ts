@@ -2,7 +2,7 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  *
- * Imposify — Express + Prisma Backend
+ * DuplexPro — Express + Prisma Backend
  * PRD-compliant implementation with:
  *  - Password complexity enforcement (FR-AUTH-001)
  *  - bcrypt cost factor 12 (FR-AUTH-003)
@@ -1476,7 +1476,7 @@ function calculateJobCost(pageCount: number, isAiRequested: boolean, isUnwaterma
 
 app.post('/api/jobs/track', authenticateToken, async (req: any, res: any) => {
   try {
-    const { pages_processed, is_ai_requested, is_unwatermarked, preset } = req.body;
+    const { pages_processed, is_ai_requested, is_unwatermarked, preset, sheets_saved } = req.body;
 
     if (typeof pages_processed !== 'number') {
       return res.status(400).json({ error: "pages_processed is required and must be a number" });
@@ -1520,12 +1520,37 @@ app.post('/api/jobs/track', authenticateToken, async (req: any, res: any) => {
       data: { credit_balance: { decrement: cost } }
     });
 
+    // Create a mock upload and generated pdf record to track environmental metrics
+    const dummyUpload = await prisma.pdfUpload.create({
+      data: {
+        user_id: user.user_id,
+        original_filename: "Imposed_Document",
+        stored_filename: "local_compile",
+        storage_path: "local",
+        storage_provider: "client",
+        file_hash_sha256: `client_side_hash_${Date.now()}`,
+        upload_status: "completed"
+      }
+    });
+
+    const generatedPdf = await prisma.generatedPdf.create({
+      data: {
+        upload_id: dummyUpload.upload_id,
+        user_id: user.user_id,
+        output_filename: "Imposed_Document.pdf",
+        storage_path: "local",
+        storage_provider: "client",
+        total_pages_original: pages_processed,
+        estimated_paper_saved: typeof sheets_saved === 'number' ? sheets_saved : 0,
+      }
+    });
+
     res.json({
       success: true,
       cost,
       remaining_credits: updatedUser.credit_balance,
       job: {
-        id: "mock_job_id",
+        id: generatedPdf.generated_pdf_id,
         user_id: user.user_id,
         pages_processed,
         preset,
@@ -1720,6 +1745,34 @@ app.delete('/api/admin/coupons/:id', authenticateToken, requireRole('admin'), as
     res.status(400).json({ error: err.message });
   }
 });
+
+app.post('/api/admin/manual', authenticateToken, requireRole('admin'), upload.single('manual'), async (req: any, res: any) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: "No file provided" });
+    }
+    
+    // Accept only PDF
+    if (req.file.mimetype !== 'application/pdf' && !req.file.originalname.toLowerCase().endsWith('.pdf')) {
+      return res.status(400).json({ error: "Only PDF files are allowed for the user manual." });
+    }
+
+    const publicDir = path.resolve(process.cwd(), 'public');
+    const filePath = path.join(publicDir, 'DuplexPro_User_Manual.pdf');
+    
+    if (!fs.existsSync(publicDir)) {
+      fs.mkdirSync(publicDir, { recursive: true });
+    }
+
+    fs.writeFileSync(filePath, req.file.buffer);
+    
+    res.json({ success: true, message: "User manual updated successfully" });
+  } catch (err: any) {
+    console.error("Error updating manual:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 
 app.get('/api/coupons/:code', async (req: any, res: any) => {
   try {
@@ -2058,7 +2111,7 @@ async function printStartupDashboard(port: number, mode: string) {
   } catch { /* ignore */ }
 
   console.log();
-  console.log(`  ${c.bold}${c.bgBlue}${c.white}  IMPOSIFY  ${c.reset}${c.bold}  Smart Notes Printer${c.reset}  ${c.gray}v2.1${c.reset}`);
+  console.log(`  ${c.bold}${c.bgBlue}${c.white}  DUPLEXPRO  ${c.reset}${c.bold}  Academic Optimizer${c.reset}  ${c.gray}v2.1${c.reset}`);
   console.log(`  ${line}`);
 
   // ── Server + Frontend ────────────────────────────────────────────────────

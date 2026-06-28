@@ -1,3 +1,25 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 @source "./";
+
+@theme {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.141 0.005 285.823);
+  --primary: oklch(0.21 0.006 285.885);
+  --secondary: oklch(0.967 0.001 286.375);
+  --border: oklch(0.92 0.004 286.32);
+  --destructive: oklch(0.577 0.245 27.325);
+  --muted: oklch(0.967 0.001 286.375);
+  --muted-foreground: oklch(0.553 0.013 285.938);
+}
+
+:root {
+  --background: 100% 0 0;
+  --foreground: 14.1% 0.005 285.823;
+  --primary: 21% 0.006 285.885;
+  --secondary: 96.7% 0.001 286.375;
+  --border: 92% 0.004 286.32;
+  --destructive: 57.7% 0.245 27.325;
+  --muted: 96.7% 0.001 286.375;
+  --muted-foreground: 55.3% 0.013 285.938;
+}

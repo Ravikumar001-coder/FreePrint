@@ -30,6 +30,7 @@ interface CostEstimatorProps {
   couponCodes: CouponCode[];
   onDiscountVoucherApplied?: (coupon: CouponCode) => void;
   currentUser?: any;
+  userStats?: any;
 }
 
 export default function CostEstimator({
@@ -42,7 +43,8 @@ export default function CostEstimator({
   setAppliedCoupon,
   couponCodes,
   onDiscountVoucherApplied,
-  currentUser
+  currentUser,
+  userStats
 }: CostEstimatorProps) {
   const { costPerSheet, duplexDiscount } = config.cost;
 
@@ -100,12 +102,15 @@ export default function CostEstimator({
   // Savings calculations
   const totalMoneySaved = Math.max(0, rawCostSelf - finalCost);
   const percentSaved = rawCostSelf > 0 ? Math.round((totalMoneySaved / rawCostSelf) * 100) : 0;
-  const sheetsSaved = Math.max(0, originalPageCount - finalSheets);
+  const currentSheetsSaved = Math.max(0, originalPageCount - finalSheets);
 
-  // Environmental metrics
-  const gramsPulpSaved = sheetsSaved * 5;
-  const leavesSavedCount = parseFloat((sheetsSaved / 83.33).toFixed(2));
-  const gramsCo2Saved = sheetsSaved * 10;
+  // Environmental metrics - Use global stats if available, plus current layout savings
+  const globalSheetsSaved = userStats?.total_paper_saved || 0;
+  const displaySheetsSaved = globalSheetsSaved + currentSheetsSaved;
+
+  const gramsPulpSaved = displaySheetsSaved * 5;
+  const leavesSavedCount = parseFloat((displaySheetsSaved / 83.33).toFixed(2));
+  const gramsCo2Saved = displaySheetsSaved * 10;
 
   // Input states for Checkout Coupons
   const [couponInput, setCouponInput] = useState("");
@@ -367,13 +372,14 @@ export default function CostEstimator({
 
       {/* GREEN SCORECARD */}
       <div className="bg-emerald-550/5 bg-emerald-500/5 rounded-2xl p-5 border border-emerald-500/10">
-        <h3 className="text-xs font-extrabold text-emerald-800 flex items-center gap-1.5 mb-3.5">
+        <h3 className="text-xs font-extrabold text-emerald-800 flex items-center gap-1.5 mb-1">
           <Leaf size={14} fill="currentColor" className="text-emerald-500 shrink-0" />
           Student Green-Print Environmental Scorecard
         </h3>
+        <p className="text-[10px] text-emerald-600 mb-3.5 pl-5">Lifetime Total Savings (Including Current Layout)</p>
         <div className="grid grid-cols-3 gap-2 text-center">
           <div className="bg-white/80 p-3.5 rounded-xl border border-emerald-500/5">
-            <span className="text-xs font-black font-mono text-emerald-700">{sheetsSaved}</span>
+            <span className="text-xs font-black font-mono text-emerald-700">{displaySheetsSaved}</span>
             <span className="text-[9px] text-gray-500 block mt-1 uppercase font-semibold">Sheets of Paper Saved</span>
           </div>
           <div className="bg-white/80 p-3.5 rounded-xl border border-emerald-500/5">

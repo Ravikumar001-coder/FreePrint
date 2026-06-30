@@ -65,10 +65,10 @@ const DEFAULT_CONFIG: ImpositionConfig = {
   customMargins: { top: 12, bottom: 12, left: 12, right: 12 },
   pageNumbersEnabled: true,
   watermark: {
-    text: "LECTURE REVISION",
-    enabled: true,
+    text: "",
+    enabled: false,
     opacity: 0.1,
-    size: 26,
+    size: 40,
   },
   cost: {
     costPerSheet: 1.0, // ₹1.0 standard Local rate
@@ -76,14 +76,21 @@ const DEFAULT_CONFIG: ImpositionConfig = {
   },
   selectedPages: "",
   scaleToFit: true,
-  layoutFlow: "duplex-notes",
+  layoutFlow: "rows",
+  gapHorizontal: 0,
+  gapVertical: 0,
+  _version: 1, // Force reset for users with broken configs
 };
 
 export default function App() {
   const [config, setConfig] = useState<ImpositionConfig>(() => {
     try {
       const saved = localStorage.getItem("imposer_config");
-      return saved ? JSON.parse(saved) : DEFAULT_CONFIG;
+      const parsed = saved ? JSON.parse(saved) : null;
+      if (parsed && parsed._version === 1) {
+        return parsed;
+      }
+      return DEFAULT_CONFIG;
     } catch {
       return DEFAULT_CONFIG;
     }
@@ -400,9 +407,9 @@ export default function App() {
         ...config,
         preset: "exam",
         pagesPerSheet: 6,
-        columns: 3,
-        rows: 2,
-        duplexMode: "flip-short",
+        columns: 2,
+        rows: 3,
+        duplexMode: "flip-long",
         margin: "standard",
         pageNumbersEnabled: true,
         watermark: {

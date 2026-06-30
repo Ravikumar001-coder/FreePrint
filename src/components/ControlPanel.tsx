@@ -510,9 +510,9 @@ export default function ControlPanel({
               onChange={(e) => updateConfig("layoutFlow", e.target.value)}
               className={`text-xs rounded-lg border border-gray-200 p-2 bg-white focus:ring-1 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-400 transition-all duration-500 ${glowClass}`}
             >
-              <option value="duplex-notes">Correct Notes (Backs match Fronts)</option>
-              <option value="rows">Simple Flow (By horizontal rows)</option>
-              <option value="z-curve">Z-Curve Flow (Left to right, top down)</option>
+              <option value="duplex-notes">Flashcards (Backs match Fronts)</option>
+              <option value="rows">Handout (By horizontal rows)</option>
+              <option value="columns">Handout (By vertical columns)</option>
             </select>
           </div>
         </div>
@@ -533,11 +533,10 @@ export default function ControlPanel({
         </div>
 
         {/* Margins */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-semibold text-gray-700">Outer Margins</label>
             <select
-              disabled={config.preset !== "custom"}
               value={config.margin}
               onChange={(e) => updateConfig("margin", e.target.value as MarginOption)}
               className={`text-xs rounded-lg border border-gray-200 p-2 bg-white focus:ring-1 focus:ring-indigo-500 disabled:bg-gray-50 transition-all duration-500 ${glowClass}`}
@@ -548,6 +547,30 @@ export default function ControlPanel({
               <option value="wide">Wide (40 pt)</option>
               <option value="custom">Custom</option>
             </select>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold text-gray-700">Page Spacing (H/V)</label>
+            <div className="flex gap-2">
+              <input
+                type="number"
+                min="0"
+                placeholder="Horiz"
+                value={config.gapHorizontal || 0}
+                onChange={(e) => updateConfig("gapHorizontal", parseInt(e.target.value) || 0)}
+                className={`w-1/2 text-xs rounded-lg border border-gray-200 p-2 bg-white focus:ring-1 focus:ring-indigo-500 transition-all duration-500 ${glowClass}`}
+                title="Horizontal Gap (pt)"
+              />
+              <input
+                type="number"
+                min="0"
+                placeholder="Vert"
+                value={config.gapVertical || 0}
+                onChange={(e) => updateConfig("gapVertical", parseInt(e.target.value) || 0)}
+                className={`w-1/2 text-xs rounded-lg border border-gray-200 p-2 bg-white focus:ring-1 focus:ring-indigo-500 transition-all duration-500 ${glowClass}`}
+                title="Vertical Gap (pt)"
+              />
+            </div>
           </div>
 
           <div className="flex flex-col gap-1.5">

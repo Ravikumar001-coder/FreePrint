@@ -47,6 +47,9 @@ export interface ImpositionConfig {
   selectedPages: string; // e.g. "1-10, 12, 14-16" or empty for all
   scaleToFit: boolean;
   layoutFlow: "z-curve" | "rows" | "columns" | "duplex-notes";
+  gapHorizontal?: number;
+  gapVertical?: number;
+  _version?: number;
 }
 
 export interface PDFMetadata {

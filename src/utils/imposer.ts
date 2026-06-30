@@ -70,7 +70,7 @@ export function generateSheetLayout(
   config: ImpositionConfig
 ): Sheet[] {
   const { pagesPerSheet, duplexMode, preset, columns, rows } = config;
-  const { cols, rows: gridRows } = getGridDimensions(columns, rows);
+  const { cols, rows: gridRows, orientation } = getGridDimensions(columns, rows);
   const cellsPerSide = cols * rows;
 
   const totalOriginalPages = activePages.length;
@@ -125,6 +125,12 @@ export function generateSheetLayout(
   const isDuplex = duplexMode !== "none";
   const cellsPerSheet = isDuplex ? cellsPerSide * 2 : cellsPerSide;
 
+  let effectiveFlow = config.layoutFlow;
+  if (effectiveFlow === "duplex-notes" && !isDuplex) {
+    // Fallback: If printing single-sided, flashcard mode drops even pages. Force sequential flow.
+    effectiveFlow = "rows"; 
+  }
+
   const numSheets = Math.ceil(totalOriginalPages / cellsPerSheet);
   const sheets: Sheet[] = [];
 
@@ -140,14 +146,17 @@ export function generateSheetLayout(
 
         let pageIdx: number;
 
-        if (config.layoutFlow === "duplex-notes") {
+        if (effectiveFlow === "duplex-notes") {
           // Normal student note organization:
           // We want Page 1 on Front to Back Page 2 directly.
           // Cell at (r, c) on Front is backed by cell at (r, cols - 1 - c) on Back!
           // So Front layout counts in steps of 2: Cell 0 = Page 1 (offset + 0), Cell 1 = Page 3 (offset + 2) etc.
           pageIdx = frontOffset + (r * cols + c) * 2;
+        } else if (effectiveFlow === "columns") {
+          // Column Flow: Fill top to bottom, then left to right
+          pageIdx = frontOffset + (c * rows + r);
         } else {
-          // Standard fluid sequential filling:
+          // Standard fluid sequential filling (Rows / Z-Curve):
           // Front side is filled sequentially first from 1 to cellsPerSide
           pageIdx = frontOffset + cellIndex;
         }
@@ -161,33 +170,50 @@ export function generateSheetLayout(
       }
     }
 
-    // Populate the back side of this sheet (if duplex)
+    // Populate the back side of this sheet (if isDuplex)
     if (isDuplex) {
       const backOffset = s * cellsPerSheet;
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
           const cellIndex = r * cols + c;
           let pNum: number | null = null;
+          let isFlipped = false;
 
-          if (config.layoutFlow === "duplex-notes") {
-            // Under duplex note logic, Back cell at (r, c) aligns with Front cell at (r, cols - 1 - c).
-            // So we fetch the backing sibling page for Front at (r, cols - 1 - c).
-            // Backing page number is (Front Page) + 1.
-            const correspondingFrontCol = cols - 1 - c;
-            const correspondingFrontPageIdx = frontOffset + (r * cols + correspondingFrontCol) * 2;
+          if (effectiveFlow === "duplex-notes") {
+            // Determine how the paper is physically flipped to align fronts and backs.
+            const isLeftRightFlip = 
+              (orientation === "portrait" && config.duplexMode === "flip-long") ||
+              (orientation === "landscape" && config.duplexMode === "flip-short");
+              
+            const isTopBottomFlip = 
+              (orientation === "portrait" && config.duplexMode === "flip-short") ||
+              (orientation === "landscape" && config.duplexMode === "flip-long");
+
+            let correspondingFrontCol = c;
+            let correspondingFrontRow = r;
+
+            if (isLeftRightFlip) {
+              correspondingFrontCol = cols - 1 - c;
+            } else if (isTopBottomFlip) {
+              correspondingFrontRow = rows - 1 - r;
+              isFlipped = true; // Rotate 180 degrees to cancel out the physical upside-down flip for flashcards
+            }
+
+            const correspondingFrontPageIdx = frontOffset + (correspondingFrontRow * cols + correspondingFrontCol) * 2;
             const backingPageIdx = correspondingFrontPageIdx + 1;
 
             pNum = backingPageIdx < totalOriginalPages ? activePages[backingPageIdx] : null;
+          } else if (effectiveFlow === "columns") {
+            // Sequential back filling for columns:
+            const backCellIdx = c * rows + r;
+            const backPageIdx = backOffset + cellsPerSide + backCellIdx;
+            pNum = backPageIdx < totalOriginalPages ? activePages[backPageIdx] : null;
           } else {
-            // Standard Sequential back filling:
+            // Standard Sequential back filling for rows:
             // Back page has its own sequential offset starting after all Front cells.
             const backPageIdx = backOffset + cellsPerSide + cellIndex;
             pNum = backPageIdx < totalOriginalPages ? activePages[backPageIdx] : null;
           }
-
-          // In flip-short duplex modes, the back page text needs 180 degrees flip,
-          // depending on the physical printing parameters.
-          const isFlipped = duplexMode === "flip-short";
 
           backCells.push({
             cellIndex,
@@ -285,9 +311,12 @@ export async function createImposedPDF(
 
   const usableWidth = pageWidth - (ml + mr);
   const usableHeight = pageHeight - (mt + mb);
+  
+  const gapH = config.gapHorizontal ?? 0;
+  const gapV = config.gapVertical ?? 0;
 
-  const cellWidth = usableWidth / cols;
-  const cellHeight = usableHeight / rows;
+  const cellWidth = (usableWidth - (cols - 1) * gapH) / cols;
+  const cellHeight = (usableHeight - (rows - 1) * gapV) / rows;
 
   const fontRef = await destDoc.embedFont(StandardFonts.Helvetica);
   const fontBoldRef = await destDoc.embedFont(StandardFonts.HelveticaBold);
@@ -301,14 +330,8 @@ export async function createImposedPDF(
     const srcIndex = pageNum - 1;
     if (srcIndex >= 0 && srcIndex < maxPages) {
       if (!embeddedPagesMap.has(pageNum)) {
-        // Use getCropBox() to strip out invisible white bounds (e.g. PPT export borders)
-        const crop = srcPages[srcIndex].getCropBox();
-        const embedded = await destDoc.embedPage(srcPages[srcIndex], {
-          left: crop.x,
-          bottom: crop.y,
-          right: crop.x + crop.width,
-          top: crop.y + crop.height,
-        });
+        // Let pdf-lib automatically handle the MediaBox/CropBox translation matrix
+        const embedded = await destDoc.embedPage(srcPages[srcIndex]);
         embeddedPagesMap.set(pageNum, embedded);
       }
     }
@@ -361,12 +384,10 @@ export async function createImposedPDF(
       const c = cellIdx % cols;
 
       // Calculate cell bounding box
-      // In PDF, target origin (0,0) is bottom-left!
-      // So rows are counted upwards from bottom!
-      // Column `c` starts at left: `ml + c * cellWidth`
-      // Row `r` starts from top: `pageHeight - mt - (r + 1) * cellHeight`
-      const x = ml + c * cellWidth;
-      const y = pageHeight - mt - (r + 1) * cellHeight;
+      // Column `c` starts at left: `ml + c * (cellWidth + gapH)`
+      // Row `r` starts from top: `pageHeight - mt - (r + 1) * cellHeight - r * gapV`
+      const x = ml + c * (cellWidth + gapH);
+      const y = pageHeight - mt - (r + 1) * cellHeight - r * gapV;
 
       // Draw light gray grid boundaries for each note segment
       pageObj.drawRectangle({
@@ -400,76 +421,79 @@ export async function createImposedPDF(
 
           if (config.scaleToFit) {
             const scaleNormal = Math.min(targetW / srcW, targetH / srcH);
-            const areaNormal = Math.pow(scaleNormal, 2) * (srcW * srcH);
+            const scale = scaleNormal;
 
-            const scaleRotated = Math.min(targetW / srcH, targetH / srcW);
-            const areaRotated = Math.pow(scaleRotated, 2) * (srcW * srcH);
-
-            let scale = 1;
-            if (areaRotated > areaNormal) {
-              shouldRotate = true;
-              scale = scaleRotated;
-            } else {
-              shouldRotate = false;
-              scale = scaleNormal;
-            }
-
+            shouldRotate = false;
             drawW = srcW * scale;
             drawH = srcH * scale;
-            visualW = shouldRotate ? drawH : drawW;
-            visualH = shouldRotate ? drawW : drawH;
+            visualW = drawW;
+            visualH = drawH;
           } else {
             // Stretch to fill exactly (Aspect Ratio Unlocked)
-            const ratioNormal = srcW / srcH;
-            const ratioTarget = targetW / targetH;
-            const ratioRotated = srcH / srcW;
-            
-            if (Math.abs(ratioRotated - ratioTarget) < Math.abs(ratioNormal - ratioTarget)) {
-              shouldRotate = true;
-            }
+            shouldRotate = false;
 
             visualW = targetW;
             visualH = targetH;
-            drawW = shouldRotate ? targetH : targetW;
-            drawH = shouldRotate ? targetW : targetH;
+            drawW = targetW;
+            drawH = targetH;
           }
 
           // Center the embedded section inside the layout container
           const drawX = x + (cellWidth - visualW) / 2;
           const drawY = y + (cellHeight - visualH) / 2 + 3; // Nudge up to make room for cell page labels
 
-          if (shouldRotate) {
-            // If rotated 90 degrees CCW, the original bottom-left (pivot) moves.
-            // To align the bottom-left of the visual rotated box to (drawX, drawY),
-            // we must set pivot x = drawX + visualW, and pivot y = drawY.
-            pageObj.drawPage(embedded, {
-              x: drawX + visualW,
-              y: drawY,
-              width: drawW,
-              height: drawH,
-              angle: degrees(90),
-            });
-          } else {
-            pageObj.drawPage(embedded, {
-              x: drawX,
-              y: drawY,
-              width: drawW,
-              height: drawH,
-            });
+          // The visual bounding box is [drawX, drawX + visualW] x [drawY, drawY + visualH].
+          // The original page is [0, drawW] x [0, drawH].
+          let angleDegrees = shouldRotate ? 90 : 0;
+          if (cell.isFlipped) angleDegrees += 180;
+          angleDegrees = angleDegrees % 360;
+
+          let posX = drawX;
+          let posY = drawY;
+
+          if (angleDegrees === 90) {
+            posX = drawX + visualW;
+            posY = drawY;
+          } else if (angleDegrees === 180) {
+            posX = drawX + visualW;
+            posY = drawY + visualH;
+          } else if (angleDegrees === 270) {
+            posX = drawX;
+            posY = drawY + visualH;
           }
+
+          pageObj.drawPage(embedded, {
+            x: posX,
+            y: posY,
+            width: drawW,
+            height: drawH,
+            angle: degrees(angleDegrees),
+          });
 
           // Draw a small sub-indicator of the original page number inside the cell padding area
           if (config.pageNumbersEnabled) {
             const fontLabelText = `Page ${pNum}`;
             const labelSize = 6.5;
             const textWidth = fontRef.widthOfTextAtSize(fontLabelText, labelSize);
-            pageObj.drawText(fontLabelText, {
-              x: x + (cellWidth - textWidth) / 2,
-              y: y + 4,
-              size: labelSize,
-              font: fontRef,
-              color: rgb(0.5, 0.5, 0.5),
-            });
+            
+            if (cell.isFlipped) {
+               pageObj.drawText(fontLabelText, {
+                 x: x + (cellWidth + textWidth) / 2,
+                 y: y + cellHeight - 4,
+                 size: labelSize,
+                 font: fontRef,
+                 color: rgb(0.5, 0.5, 0.5),
+                 rotate: degrees(180)
+               });
+            } else {
+              pageObj.drawText(fontLabelText, {
+                x: x + (cellWidth - textWidth) / 2,
+                y: y + 4,
+                size: labelSize,
+                font: fontRef,
+                color: rgb(0.5, 0.5, 0.5),
+              });
+            }
           }
         }
       } else {

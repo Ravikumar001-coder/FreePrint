@@ -321,17 +321,28 @@ export async function createImposedPDF(
   const fontRef = await destDoc.embedFont(StandardFonts.Helvetica);
   const fontBoldRef = await destDoc.embedFont(StandardFonts.HelveticaBold);
 
+  // Pre-copy all active pages in a single batch to prevent duplicate resources (fonts/images)
+  onProgress?.("Copying resources to prevent bloat...");
+  const uniquePageNums = Array.from(new Set(activePages));
+  const validPageNums = uniquePageNums.filter(p => p - 1 >= 0 && p - 1 < maxPages);
+  const indicesToCopy = validPageNums.map(p => p - 1);
+  
+  const copiedPages = await destDoc.copyPages(srcDoc, indicesToCopy);
+  
+  const pageNumToCopiedPage = new Map<number, any>();
+  for (let i = 0; i < validPageNums.length; i++) {
+    pageNumToCopiedPage.set(validPageNums[i], copiedPages[i]);
+  }
+
   // Embed source pages as form objects
   onProgress?.("Embedding source documents into target...");
   const embeddedPagesMap = new Map<number, any>();
 
   for (const pageNum of activePages) {
-    // 0-bound page index to embed
-    const srcIndex = pageNum - 1;
-    if (srcIndex >= 0 && srcIndex < maxPages) {
-      if (!embeddedPagesMap.has(pageNum)) {
-        // Let pdf-lib automatically handle the MediaBox/CropBox translation matrix
-        const embedded = await destDoc.embedPage(srcPages[srcIndex]);
+    if (!embeddedPagesMap.has(pageNum)) {
+      const copiedPage = pageNumToCopiedPage.get(pageNum);
+      if (copiedPage) {
+        const embedded = await destDoc.embedPage(copiedPage);
         embeddedPagesMap.set(pageNum, embedded);
       }
     }
@@ -576,6 +587,6 @@ export async function createImposedPDF(
   }
 
   onProgress?.("Building final binary buffer...");
-  const compiledBytes = await destDoc.save();
+  const compiledBytes = await destDoc.save({ useObjectStreams: true });
   return compiledBytes;
 }

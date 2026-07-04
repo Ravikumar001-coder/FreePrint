@@ -257,12 +257,16 @@ export async function createImposedPDF(
   const destDoc = await PDFDocument.create();
 
   let watermarkImage: any = null;
-  if (config.watermark.enabled) {
+  if (config.watermark.enabled && config.watermark.type === "image" && config.watermark.imageUrl) {
     try {
-      const resp = await fetch('/watermark.png');
+      const resp = await fetch(config.watermark.imageUrl);
       if (resp.ok) {
         const imgBytes = await resp.arrayBuffer();
-        watermarkImage = await destDoc.embedPng(imgBytes);
+        try {
+          watermarkImage = await destDoc.embedPng(imgBytes);
+        } catch (err) {
+          watermarkImage = await destDoc.embedJpg(imgBytes);
+        }
       }
     } catch (e) {
       console.warn("Could not load watermark image", e);
@@ -420,7 +424,7 @@ export async function createImposedPDF(
           const srcH = embedded.height;
 
           // Inner padding inside cells for page numbers and aesthetics
-          const innerPad = 14;
+          const innerPad = (mt === 0 && mb === 0 && ml === 0 && mr === 0) ? 0 : 14;
           const targetW = cellWidth - innerPad * 2;
           const targetH = cellHeight - innerPad * 2;
 
@@ -482,15 +486,19 @@ export async function createImposedPDF(
           });
 
           // Draw a small sub-indicator of the original page number inside the cell padding area
-          if (config.pageNumbersEnabled) {
+          if (config.pageNumbersEnabled && (!config.pageNumberFormat || config.pageNumberFormat === "cell" || config.pageNumberFormat === "both")) {
             const fontLabelText = `Page ${pNum}`;
-            const labelSize = 6.5;
+            const labelSize = config.pageNumberFontSize || 6.5;
             const textWidth = fontRef.widthOfTextAtSize(fontLabelText, labelSize);
+            const isTop = config.pageNumberPosition === "top";
+            
+            const textY = isTop ? (y + cellHeight - 4 - labelSize) : (y + 4);
+            const flippedTextY = isTop ? (y + 4 + labelSize) : (y + cellHeight - 4);
             
             if (cell.isFlipped) {
                pageObj.drawText(fontLabelText, {
                  x: x + (cellWidth + textWidth) / 2,
-                 y: y + cellHeight - 4,
+                 y: flippedTextY,
                  size: labelSize,
                  font: fontRef,
                  color: rgb(0.5, 0.5, 0.5),
@@ -499,7 +507,7 @@ export async function createImposedPDF(
             } else {
               pageObj.drawText(fontLabelText, {
                 x: x + (cellWidth - textWidth) / 2,
-                y: y + 4,
+                y: textY,
                 size: labelSize,
                 font: fontRef,
                 color: rgb(0.5, 0.5, 0.5),
@@ -524,66 +532,84 @@ export async function createImposedPDF(
       }
     }
 
-    // 2. Overlay Global Watermark
-    if (config.watermark.enabled && watermarkImage) {
-      const opacity = config.watermark.opacity || 0.15;
+    // 1.5 Draw Physical Sheet / Printed Page Numbers
+    if (config.pageNumbersEnabled && (config.pageNumberFormat === "sheet" || config.pageNumberFormat === "both")) {
+      const isDuplex = config.duplexMode !== "none";
+      let currentPrintedPage = sheetIndex + 1;
+      let total = totalSheetsCount;
       
-      const centerX = pageWidth / 2;
-      const centerY = pageHeight / 2;
+      if (isDuplex) {
+        currentPrintedPage = (sheetIndex * 2) + (isBack ? 2 : 1);
+        total = totalSheetsCount * 2;
+      }
 
-      const imgW = watermarkImage.width;
-      const imgH = watermarkImage.height;
+      const fontLabelText = `Printed Page ${currentPrintedPage} of ${total}`;
+      const labelSize = config.pageNumberFontSize || 8;
+      const textWidth = fontRef.widthOfTextAtSize(fontLabelText, labelSize);
+      const isTop = config.pageNumberPosition === "top";
       
-      // Scale watermark to fit about 50% of the page width
-      const targetW = pageWidth * 0.5;
-      const scale = targetW / imgW;
-      const drawW = imgW * scale;
-      const drawH = imgH * scale;
+      const textX = (pageWidth - textWidth) / 2;
+      const textY = isTop ? (pageHeight - 12 - labelSize) : 12;
 
-      pageObj.drawImage(watermarkImage, {
-        x: centerX - drawW / 2,
-        y: centerY - drawH / 2,
-        width: drawW,
-        height: drawH,
-        opacity: opacity,
-      });
-    } 
-    
-    if (config.watermark.enabled && config.watermark.text) {
-      const wText = config.watermark.text.toUpperCase();
-      const wSize = config.watermark.size || 34;
-      const opacity = config.watermark.opacity || 0.12;
-
-      // Draw watermark text diagonally centered on the paper sheet
-      const textWidth = fontBoldRef.widthOfTextAtSize(wText, wSize);
-      const textHeight = wSize;
-
-      // Coordinate center
-      const centerX = pageWidth / 2;
-      const centerY = pageHeight / 2;
-
-      pageObj.drawText(wText, {
-        x: centerX - textWidth / 2 + Math.sin(Math.PI / 6) * (textHeight / 2),
-        y: centerY - textHeight / 2,
-        size: wSize,
-        font: fontBoldRef,
-        color: rgb(0.7, 0.7, 0.7),
-        opacity,
-        rotate: degrees(30),
+      pageObj.drawText(fontLabelText, {
+        x: textX,
+        y: textY,
+        size: labelSize,
+        font: fontRef,
+        color: rgb(0.3, 0.3, 0.3),
       });
     }
 
-    // 3. Draw physical sheet indices at sheet bottom center margins
-    const footerText = `${sideType.toUpperCase()} - Sheet ${sheetIndex + 1} of ${totalSheetsCount}`;
-    const footerSize = 8;
-    const footerWidth = fontRef.widthOfTextAtSize(footerText, footerSize);
-    pageObj.drawText(footerText, {
-      x: (pageWidth - footerWidth) / 2,
-      y: mb > 12 ? mb / 2 : 5,
-      size: footerSize,
-      font: fontRef,
-      color: rgb(0.4, 0.4, 0.4),
-    });
+    // 2. Overlay Global Watermark
+    if (config.watermark.enabled) {
+      if (config.watermark.type === "image" && watermarkImage) {
+        const opacity = config.watermark.opacity ?? 0.15;
+        
+        const centerX = pageWidth / 2;
+        const centerY = pageHeight / 2;
+
+        const imgW = watermarkImage.width;
+        const imgH = watermarkImage.height;
+        
+        // Scale watermark based on config.watermark.size (default 50 means 50% of page width)
+        const sizePct = (config.watermark.size || 50) / 100;
+        const targetW = pageWidth * sizePct;
+        const scale = targetW / imgW;
+        const drawW = imgW * scale;
+        const drawH = imgH * scale;
+
+        pageObj.drawImage(watermarkImage, {
+          x: centerX - drawW / 2,
+          y: centerY - drawH / 2,
+          width: drawW,
+          height: drawH,
+          opacity: opacity,
+        });
+      } else if (config.watermark.type === "text" && config.watermark.text) {
+        const wText = config.watermark.text.toUpperCase();
+        const wSize = config.watermark.size || 34;
+        const opacity = config.watermark.opacity ?? 0.12;
+
+        // Draw watermark text diagonally centered on the paper sheet
+        const textWidth = fontBoldRef.widthOfTextAtSize(wText, wSize);
+        const textHeight = wSize;
+
+        // Coordinate center
+        const centerX = pageWidth / 2;
+        const centerY = pageHeight / 2;
+
+        pageObj.drawText(wText, {
+          x: centerX - textWidth / 2 + Math.sin(Math.PI / 6) * (textHeight / 2),
+          y: centerY - textHeight / 2,
+          size: wSize,
+          font: fontBoldRef,
+          color: rgb(0.7, 0.7, 0.7),
+          opacity,
+          rotate: degrees(30),
+        });
+      }
+    }
+
   }
 
   onProgress?.("Building final binary buffer...");

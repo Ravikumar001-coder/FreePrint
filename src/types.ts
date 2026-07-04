@@ -26,10 +26,12 @@ export interface CostConfig {
 }
 
 export interface WatermarkConfig {
+  type: "text" | "image";
   text: string;
+  imageUrl?: string;
   enabled: boolean;
   opacity: number; // 0 to 1
-  size: number; // font size
+  size: number; // font size or image scale
 }
 
 export interface ImpositionConfig {
@@ -42,6 +44,9 @@ export interface ImpositionConfig {
   margin: MarginOption;
   customMargins: CustomMargins; // in points (1 inch = 72 points)
   pageNumbersEnabled: boolean;
+  pageNumberPosition?: "top" | "bottom";
+  pageNumberFormat?: "cell" | "sheet" | "both";
+  pageNumberFontSize?: number;
   watermark: WatermarkConfig;
   cost: CostConfig;
   selectedPages: string; // e.g. "1-10, 12, 14-16" or empty for all

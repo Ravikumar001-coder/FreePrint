@@ -261,47 +261,9 @@ export default function CostEstimator({
         </div>
       </div>
 
-      {/* DISCOUNTS APPLIED BREAKDOWN INFO */}
-      {(hasPlanDiscount || appliedCoupon) && (
-        <div className="p-3.5 bg-indigo-50/20 border border-indigo-100/50 rounded-xl flex flex-col gap-2">
-          <span className="text-[9px] font-bold text-indigo-850 text-indigo-800 uppercase tracking-wider font-mono">Discounts Application Stack:</span>
-          <div className="flex flex-col gap-1 text-[11px] text-slate-700">
-            {hasPlanDiscount && (
-              <div className="flex justify-between items-center">
-                <span className="flex items-center gap-1"><Crown size={10} className="text-amber-500" /> {activePlan.name} Tier Multiplier Discount</span>
-                <span className="font-semibold text-indigo-700 font-mono">-{( (1 - activePlan.costMultiplier) * 100 ).toFixed(0)}% off base</span>
-              </div>
-            )}
-            {appliedCoupon && (
-              <div className="flex justify-between items-center border-t border-indigo-100/30 pt-1 mt-1">
-                <span className="flex items-center gap-1 font-semibold text-emerald-800"><Ticket size={10} className="text-emerald-500" /> Voucher Code Applied: {appliedCoupon.code}</span>
-                <span className="font-bold text-emerald-700 font-mono">
-                  {appliedCoupon.discountType === "free" ? "100% OFF (FREE)" : `Saved ₹${couponSavingsAmount.toFixed(2)}`}
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
-      {/* DETAILED SAVINGS EXPLANATION */}
-      <div className="bg-indigo-50/10 rounded-xl p-4 border border-indigo-100/50 flex flex-col sm:flex-row items-center sm:items-stretch justify-between gap-4 text-center sm:text-left select-none">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-indigo-600 text-white rounded-lg hidden sm:block shrink-0">
-            <ThumbsUp size={16} />
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-gray-800">Double-Sided Booklet Efficiency</p>
-            <p className="text-[10px] text-gray-500 mt-0.5 leading-relaxed">
-              Dual-side landscape print layouts reduces total print sheet raw material charges.
-            </p>
-          </div>
-        </div>
 
-        <div className="shrink-0 flex items-center bg-white px-4 py-2 border border-indigo-100 rounded-lg text-indigo-700 font-sans font-black text-xs">
-          ₹{totalMoneySaved.toFixed(2)} REDUCED
-        </div>
-      </div>
+
 
       {/* INTEGRATED CHECKOUT VOUCHER INPUT FIELD */}
       <div className="bg-slate-50 p-4 border border-slate-200/80 rounded-xl flex flex-col gap-3">

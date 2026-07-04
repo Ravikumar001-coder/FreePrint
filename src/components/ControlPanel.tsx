@@ -36,6 +36,43 @@ interface ControlPanelProps {
   isFreePlan?: boolean;
 }
 
+const StepperInput = ({
+  value,
+  onChange,
+  min = 0,
+  max = 999,
+  className = ""
+}: {
+  value: number;
+  onChange: (val: number) => void;
+  min?: number;
+  max?: number;
+  className?: string;
+}) => {
+  return (
+    <div className={`flex items-center rounded-lg border border-gray-200 overflow-hidden bg-white focus-within:ring-1 focus-within:ring-indigo-500 h-[34px] ${className}`}>
+      <button 
+        type="button" 
+        onClick={() => onChange(Math.max(min, value - 1))}
+        className="w-6 sm:w-7 h-full bg-transparent text-gray-500 hover:bg-gray-100 border-r border-gray-200 touch-manipulation font-bold flex items-center justify-center transition-colors select-none shrink-0"
+      >−</button>
+      <input 
+        type="number"
+        min={min}
+        max={max}
+        value={value}
+        onChange={(e) => onChange(parseInt(e.target.value) || min)}
+        className="w-full min-w-[12px] flex-1 text-xs text-center font-semibold text-slate-800 bg-transparent border-none p-0 focus:ring-0 outline-none h-full m-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+      />
+      <button 
+        type="button" 
+        onClick={() => onChange(Math.min(max, value + 1))}
+        className="w-6 sm:w-7 h-full bg-transparent text-gray-500 hover:bg-gray-100 border-l border-gray-200 touch-manipulation font-bold flex items-center justify-center transition-colors select-none shrink-0"
+      >+</button>
+    </div>
+  );
+};
+
 export default function ControlPanel({
   config,
   onChangeConfig,
@@ -441,38 +478,32 @@ export default function ControlPanel({
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1">
                 <label className="text-[10px] text-gray-500">Columns</label>
-                <input
-                  type="number"
-                  min="1"
-                  max="10"
+                <StepperInput
+                  min={1}
+                  max={10}
                   value={config.columns}
-                  onChange={(e) => {
-                    const cols = parseInt(e.target.value, 10) || 1;
+                  onChange={(val) => {
                     onChangeConfig({
                       ...config,
-                      columns: cols,
-                      pagesPerSheet: cols * config.rows,
+                      columns: val,
+                      pagesPerSheet: val * config.rows,
                     });
                   }}
-                  className="w-full text-xs rounded-lg border border-gray-200 p-2 bg-white focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
               <div className="flex flex-col gap-1">
                 <label className="text-[10px] text-gray-500">Rows</label>
-                <input
-                  type="number"
-                  min="1"
-                  max="10"
+                <StepperInput
+                  min={1}
+                  max={10}
                   value={config.rows}
-                  onChange={(e) => {
-                    const r = parseInt(e.target.value, 10) || 1;
+                  onChange={(val) => {
                     onChangeConfig({
                       ...config,
-                      rows: r,
-                      pagesPerSheet: config.columns * r,
+                      rows: val,
+                      pagesPerSheet: config.columns * val,
                     });
                   }}
-                  className="w-full text-xs rounded-lg border border-gray-200 p-2 bg-white focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
             </div>
@@ -551,24 +582,18 @@ export default function ControlPanel({
 
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-semibold text-gray-700">Page Spacing (H/V)</label>
-            <div className="flex gap-2">
-              <input
-                type="number"
-                min="0"
-                placeholder="Horiz"
+            <div className="flex gap-1 sm:gap-2">
+              <StepperInput
+                min={0}
                 value={config.gapHorizontal || 0}
-                onChange={(e) => updateConfig("gapHorizontal", parseInt(e.target.value) || 0)}
-                className={`w-1/2 text-xs rounded-lg border border-gray-200 p-2 bg-white focus:ring-1 focus:ring-indigo-500 transition-all duration-500 ${glowClass}`}
-                title="Horizontal Gap (pt)"
+                onChange={(val) => updateConfig("gapHorizontal", val)}
+                className={`flex-1 transition-all duration-500 ${glowClass}`}
               />
-              <input
-                type="number"
-                min="0"
-                placeholder="Vert"
+              <StepperInput
+                min={0}
                 value={config.gapVertical || 0}
-                onChange={(e) => updateConfig("gapVertical", parseInt(e.target.value) || 0)}
-                className={`w-1/2 text-xs rounded-lg border border-gray-200 p-2 bg-white focus:ring-1 focus:ring-indigo-500 transition-all duration-500 ${glowClass}`}
-                title="Vertical Gap (pt)"
+                onChange={(val) => updateConfig("gapVertical", val)}
+                className={`flex-1 transition-all duration-500 ${glowClass}`}
               />
             </div>
           </div>
@@ -594,19 +619,19 @@ export default function ControlPanel({
           <div className="grid grid-cols-4 gap-2 mt-2">
             <div className="flex flex-col gap-1">
               <label className="text-[10px] text-gray-500">Top (pt)</label>
-              <input type="number" value={config.customMargins?.top || 0} onChange={(e) => onChangeConfig({ ...config, customMargins: { ...config.customMargins, top: parseInt(e.target.value) || 0 }})} className="w-full text-xs border border-gray-200 p-1.5 rounded" />
+              <StepperInput min={0} value={config.customMargins?.top || 0} onChange={(val) => onChangeConfig({ ...config, customMargins: { ...config.customMargins, top: val }})} />
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-[10px] text-gray-500">Bottom (pt)</label>
-              <input type="number" value={config.customMargins?.bottom || 0} onChange={(e) => onChangeConfig({ ...config, customMargins: { ...config.customMargins, bottom: parseInt(e.target.value) || 0 }})} className="w-full text-xs border border-gray-200 p-1.5 rounded" />
+              <StepperInput min={0} value={config.customMargins?.bottom || 0} onChange={(val) => onChangeConfig({ ...config, customMargins: { ...config.customMargins, bottom: val }})} />
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-[10px] text-gray-500">Left (pt)</label>
-              <input type="number" value={config.customMargins?.left || 0} onChange={(e) => onChangeConfig({ ...config, customMargins: { ...config.customMargins, left: parseInt(e.target.value) || 0 }})} className="w-full text-xs border border-gray-200 p-1.5 rounded" />
+              <StepperInput min={0} value={config.customMargins?.left || 0} onChange={(val) => onChangeConfig({ ...config, customMargins: { ...config.customMargins, left: val }})} />
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-[10px] text-gray-500">Right (pt)</label>
-              <input type="number" value={config.customMargins?.right || 0} onChange={(e) => onChangeConfig({ ...config, customMargins: { ...config.customMargins, right: parseInt(e.target.value) || 0 }})} className="w-full text-xs border border-gray-200 p-1.5 rounded" />
+              <StepperInput min={0} value={config.customMargins?.right || 0} onChange={(val) => onChangeConfig({ ...config, customMargins: { ...config.customMargins, right: val }})} />
             </div>
           </div>
         )}
@@ -633,17 +658,57 @@ export default function ControlPanel({
           </div>
 
           {config.watermark.enabled && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-              <div className="flex flex-col gap-1.5">
-                <span className="text-[10px] text-gray-500 font-semibold uppercase">Watermark Caption</span>
-                <input
-                  type="text"
-                  placeholder="e.g. LECTURE EXAM PREP"
-                  value={config.watermark.text}
-                  onChange={(e) => updateWatermark("text", e.target.value)}
-                  className="text-xs rounded-lg border border-gray-200 p-2"
-                />
+            <div className="flex flex-col gap-3 pt-1">
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="watermark_type"
+                    checked={config.watermark.type === "text"}
+                    onChange={() => updateWatermark("type", "text")}
+                    className="w-3.5 h-3.5 text-indigo-600 border-gray-300 focus:ring-indigo-500"
+                  />
+                  <span className="text-[10px] text-gray-700 font-semibold uppercase">Text Caption</span>
+                </label>
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="watermark_type"
+                    checked={config.watermark.type === "image"}
+                    onChange={() => updateWatermark("type", "image")}
+                    className="w-3.5 h-3.5 text-indigo-600 border-gray-300 focus:ring-indigo-500"
+                  />
+                  <span className="text-[10px] text-gray-700 font-semibold uppercase">Logo Image</span>
+                </label>
               </div>
+
+              {config.watermark.type === "text" ? (
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[10px] text-gray-500 font-semibold uppercase">Watermark Caption</span>
+                  <input
+                    type="text"
+                    placeholder="e.g. LECTURE EXAM PREP"
+                    value={config.watermark.text}
+                    onChange={(e) => updateWatermark("text", e.target.value)}
+                    className="text-xs rounded-lg border border-gray-200 p-2"
+                  />
+                </div>
+              ) : (
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[10px] text-gray-500 font-semibold uppercase">Upload Logo (PNG/JPG)</span>
+                  <input
+                    type="file"
+                    accept=".png,.jpg,.jpeg"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        const url = URL.createObjectURL(e.target.files[0]);
+                        updateWatermark("imageUrl", url);
+                      }
+                    }}
+                    className="text-xs rounded-lg border border-gray-200 p-1 bg-white file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-[10px] file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
+                  />
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-2">
                 <div className="flex flex-col gap-1.5">
@@ -659,7 +724,9 @@ export default function ControlPanel({
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <span className="text-[10px] text-gray-500 font-semibold uppercase font-mono">Size (pt)</span>
+                  <span className="text-[10px] text-gray-500 font-semibold uppercase font-mono">
+                    {config.watermark.type === "text" ? "Size (pt)" : "Scale (%)"}
+                  </span>
                   <input
                     type="number"
                     min="8"
@@ -674,15 +741,58 @@ export default function ControlPanel({
           )}
         </div>
 
-        {/* Global Page Numbers */}
-        <div className="flex items-center justify-between border-t border-gray-50 pt-3">
-          <span className="text-xs font-semibold text-gray-700">Overlay Page Index Footers</span>
-          <input
-            type="checkbox"
-            checked={config.pageNumbersEnabled}
-            onChange={(e) => updateConfig("pageNumbersEnabled", e.target.checked)}
-            className="w-4.5 h-4.5 rounded-sm border-gray-300 text-indigo-600 focus:ring-indigo-500"
-          />
+        {/* Page Count Settings */}
+        <div className="flex flex-col gap-3 border-t border-gray-50 pt-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="text-xs font-semibold text-gray-700 block">Page Count / Pagination</span>
+              <span className="text-[10px] text-gray-500">Overlay page index footers onto document</span>
+            </div>
+            <input
+              type="checkbox"
+              checked={config.pageNumbersEnabled}
+              onChange={(e) => updateConfig("pageNumbersEnabled", e.target.checked)}
+              className="w-4.5 h-4.5 rounded-sm border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            />
+          </div>
+          
+          {config.pageNumbersEnabled && (
+            <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
+              <div className="flex flex-col gap-1.5 col-span-2">
+                <span className="text-[10px] text-gray-500 font-semibold uppercase font-mono">Numbering Style</span>
+                <select
+                  value={config.pageNumberFormat || "cell"}
+                  onChange={(e) => updateConfig("pageNumberFormat", e.target.value)}
+                  className="text-xs rounded-lg border border-gray-200 p-2 bg-white focus:ring-1 focus:ring-indigo-500"
+                >
+                  <option value="cell">Original Document Pages (Per Cell)</option>
+                  <option value="sheet">Physical Printed Sheets (Per Sheet)</option>
+                  <option value="both">Both (Cells + Sheets)</option>
+                </select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[10px] text-gray-500 font-semibold uppercase font-mono">Position</span>
+                <select
+                  value={config.pageNumberPosition || "bottom"}
+                  onChange={(e) => updateConfig("pageNumberPosition", e.target.value)}
+                  className="text-xs rounded-lg border border-gray-200 p-2 bg-white focus:ring-1 focus:ring-indigo-500"
+                >
+                  <option value="bottom">Bottom (Footer)</option>
+                  <option value="top">Top (Header)</option>
+                </select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[10px] text-gray-500 font-semibold uppercase font-mono">Font Size (pt)</span>
+                <StepperInput
+                  min={4}
+                  max={24}
+                  value={config.pageNumberFontSize || 8}
+                  onChange={(val) => updateConfig("pageNumberFontSize", val)}
+                  className="bg-white"
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

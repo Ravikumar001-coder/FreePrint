@@ -572,7 +572,8 @@ export default function AdminPanel({
           pricePerMonth: editingPlanPrice,
           description: editingPlanDesc,
           maxPagesLimit: editingPlanLimit,
-          costMultiplier: Number(editingPlanMultiplier)
+          costMultiplier: Number(editingPlanMultiplier),
+          weeklyCredits: editingWeeklyCredits
         };
       }
       return p;

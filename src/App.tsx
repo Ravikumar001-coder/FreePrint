@@ -64,7 +64,11 @@ const DEFAULT_CONFIG: ImpositionConfig = {
   margin: "compact",
   customMargins: { top: 12, bottom: 12, left: 12, right: 12 },
   pageNumbersEnabled: true,
+  pageNumberPosition: "bottom",
+  pageNumberFormat: "cell",
+  pageNumberFontSize: 8,
   watermark: {
+    type: "text",
     text: "",
     enabled: false,
     opacity: 0.1,
@@ -364,6 +368,7 @@ export default function App() {
         margin: "compact",
         pageNumbersEnabled: true,
         watermark: {
+          type: "text",
           text: "LECTURE EXAM",
           enabled: true,
           opacity: 0.1,
@@ -395,6 +400,7 @@ export default function App() {
         margin: "none",
         pageNumbersEnabled: true,
         watermark: {
+          type: "text",
           text: "GATE HIGH-DENSE",
           enabled: true,
           opacity: 0.08,
@@ -413,6 +419,7 @@ export default function App() {
         margin: "standard",
         pageNumbersEnabled: true,
         watermark: {
+          type: "text",
           text: "STUDY NOTES ONLY",
           enabled: true,
           opacity: 0.12,
@@ -431,6 +438,7 @@ export default function App() {
         margin: "compact",
         pageNumbersEnabled: true,
         watermark: {
+          type: "text",
           text: "JEE/NEET MOCK",
           enabled: true,
           opacity: 0.1,
@@ -449,6 +457,7 @@ export default function App() {
         margin: "standard",
         pageNumbersEnabled: true,
         watermark: {
+          type: "text",
           text: "QUICK PRINT",
           enabled: true,
           opacity: 0.05,

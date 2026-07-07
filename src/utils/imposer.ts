@@ -424,9 +424,14 @@ export async function createImposedPDF(
           const srcH = embedded.height;
 
           // Inner padding inside cells for page numbers and aesthetics
-          const innerPad = (mt === 0 && mb === 0 && ml === 0 && mr === 0) ? 0 : 14;
-          const targetW = cellWidth - innerPad * 2;
-          const targetH = cellHeight - innerPad * 2;
+          const defPad = (mt === 0 && mb === 0 && ml === 0 && mr === 0) ? 0 : 14;
+          const padT = config.cellPadding?.top ?? defPad;
+          const padB = config.cellPadding?.bottom ?? defPad;
+          const padL = config.cellPadding?.left ?? defPad;
+          const padR = config.cellPadding?.right ?? defPad;
+
+          const targetW = cellWidth - padL - padR;
+          const targetH = cellHeight - padT - padB;
 
           let shouldRotate = false;
           let drawW = srcW;
@@ -453,9 +458,9 @@ export async function createImposedPDF(
             drawH = targetH;
           }
 
-          // Center the embedded section inside the layout container
-          const drawX = x + (cellWidth - visualW) / 2;
-          const drawY = y + (cellHeight - visualH) / 2 + 3; // Nudge up to make room for cell page labels
+          // Center the embedded section inside the padded layout container
+          const drawX = x + padL + (targetW - visualW) / 2;
+          const drawY = y + padB + (targetH - visualH) / 2;
 
           // The visual bounding box is [drawX, drawX + visualW] x [drawY, drawY + visualH].
           // The original page is [0, drawW] x [0, drawH].

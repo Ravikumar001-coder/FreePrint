@@ -55,12 +55,33 @@ export default function PreviewGrid({ sheets, config, pdfThumbnails }: PreviewGr
     );
   }
 
+  // Compute margin for preview visually
+  let pt = 12, pb = 12, pl = 12, pr = 12; // compact default
+  if (config.margin === "none") { pt = pb = pl = pr = 0; }
+  else if (config.margin === "standard") { pt = pb = pl = pr = 24; }
+  else if (config.margin === "wide") { pt = pb = pl = pr = 40; }
+  else if (config.margin === "custom") {
+    pt = config.customMargins?.top ?? 0;
+    pb = config.customMargins?.bottom ?? 0;
+    pl = config.customMargins?.left ?? 0;
+    pr = config.customMargins?.right ?? 0;
+  }
+
+  // Scale down the margins for preview (preview is roughly 1/2 of A4 size)
+  const scale = 0.5;
+  const paddingStyle = {
+    paddingTop: `${Math.max(0, pt * scale)}px`,
+    paddingBottom: `${Math.max(0, pb * scale)}px`,
+    paddingLeft: `${Math.max(0, pl * scale)}px`,
+    paddingRight: `${Math.max(0, pr * scale)}px`,
+  };
+
   // Generate grids template
   const gridStyle: React.CSSProperties = {
     display: "grid",
     gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
     gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`,
-    gap: "10px",
+    gap: `${(config.gapVertical || 0) * scale}px ${(config.gapHorizontal || 0) * scale}px`,
     height: "100%",
   };
 
@@ -117,10 +138,11 @@ export default function PreviewGrid({ sheets, config, pdfThumbnails }: PreviewGr
 
         {/* CONTAINER PAPER SHEET */}
         <div
-          className={`relative border-2 border-gray-200 rounded-2xl bg-white shadow-xs p-4 flex flex-col justify-between transition-all aspect-[8.5/11] max-w-[420px] mx-auto w-full ${
+          className={`relative border-2 border-gray-200 rounded-2xl bg-white shadow-xs flex flex-col justify-between transition-all aspect-[8.5/11] max-w-[420px] mx-auto w-full ${
             orientation === "landscape" ? "rotate-0 origin-center" : ""
           }`}
           style={{
+            ...paddingStyle,
             minHeight: "360px",
             borderColor: side === "front" ? "rgba(79, 70, 229, 0.25)" : "rgba(139, 92, 246, 0.25)",
             boxShadow: "0 8px 30px rgba(0,0,0,0.02)",

@@ -613,6 +613,44 @@ export default function ControlPanel({
               </label>
             </div>
           </div>
+
+          <div className="flex flex-col gap-1.5 col-span-1 sm:col-span-3 mt-1 border-t border-gray-100 pt-3">
+            <label className="text-xs font-semibold text-gray-700">Cell Padding (pt) - Inside each note</label>
+            <div className="grid grid-cols-4 gap-2 mt-1">
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] text-gray-500">Top</label>
+                <StepperInput min={0} value={config.cellPadding?.top ?? 14} onChange={(val) => onChangeConfig({ ...config, cellPadding: { ...(config.cellPadding || { top:14, bottom:14, left:14, right:14 }), top: val }})} />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] text-gray-500">Bottom</label>
+                <StepperInput min={0} value={config.cellPadding?.bottom ?? 14} onChange={(val) => onChangeConfig({ ...config, cellPadding: { ...(config.cellPadding || { top:14, bottom:14, left:14, right:14 }), bottom: val }})} />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] text-gray-500">Left</label>
+                <StepperInput min={0} value={config.cellPadding?.left ?? 14} onChange={(val) => onChangeConfig({ ...config, cellPadding: { ...(config.cellPadding || { top:14, bottom:14, left:14, right:14 }), left: val }})} />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] text-gray-500">Right</label>
+                <StepperInput min={0} value={config.cellPadding?.right ?? 14} onChange={(val) => onChangeConfig({ ...config, cellPadding: { ...(config.cellPadding || { top:14, bottom:14, left:14, right:14 }), right: val }})} />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold text-gray-700">Scale to Fit Cell</label>
+            <div className="flex items-center h-full">
+              <input
+                type="checkbox"
+                id="scale_to_fit"
+                checked={config.scaleToFit}
+                onChange={(e) => updateConfig("scaleToFit", e.target.checked)}
+                className="w-4 h-4 rounded-sm border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              <label htmlFor="scale_to_fit" className="text-xs text-gray-500 ml-2 font-medium">
+                Aspect ratio locks
+              </label>
+            </div>
+          </div>
         </div>
 
         {config.margin === "custom" && (

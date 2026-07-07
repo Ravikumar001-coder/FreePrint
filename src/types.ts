@@ -54,6 +54,12 @@ export interface ImpositionConfig {
   layoutFlow: "z-curve" | "rows" | "columns" | "duplex-notes";
   gapHorizontal?: number;
   gapVertical?: number;
+  cellPadding?: {
+    top: number;
+    bottom: number;
+    left: number;
+    right: number;
+  }; // padding within each cell
   _version?: number;
 }
 

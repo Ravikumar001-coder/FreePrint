@@ -83,7 +83,8 @@ const DEFAULT_CONFIG: ImpositionConfig = {
   layoutFlow: "rows",
   gapHorizontal: 0,
   gapVertical: 0,
-  _version: 1, // Force reset for users with broken configs
+  cellPadding: { top: 14, bottom: 14, left: 14, right: 14 },
+  _version: 2, // Force reset for users with broken configs
 };
 
 export default function App() {

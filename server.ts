@@ -52,6 +52,7 @@ if (process.env.NODE_ENV !== 'production') globalThis.prismaGlobal = prisma;
 // Environment variables loaded at top of file
 
 const app = express();
+app.set('trust proxy', 1); // Trust first proxy (Render load balancer)
 const PORT = process.env.PORT || 3000;
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 30 * 1024 * 1024 } });

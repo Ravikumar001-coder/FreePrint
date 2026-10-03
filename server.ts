@@ -2342,6 +2342,19 @@ async function setupVite() {
     });
   }
 
+  // --- SEED DATABASE ON BOOT ---
+  try {
+    const plans = [
+      { plan_slug: 'free', plan_name: 'Free', plan_tier: 'free', price_monthly: 0, price_annual: 0, max_uploads_per_month: 10, max_file_size_mb: 10, max_pages_per_file: 100, storage_limit_gb: 0.5 },
+      { plan_slug: 'pro', plan_name: 'Pro', plan_tier: 'premium', price_monthly: 9.99, price_annual: 99.99, max_uploads_per_month: 100, max_file_size_mb: 50, max_pages_per_file: 500, storage_limit_gb: 5, allows_watermark_removal: true },
+      { plan_slug: 'ultimate', plan_name: 'Ultimate', plan_tier: 'premium', price_monthly: 19.99, price_annual: 199.99, max_uploads_per_month: 1000, max_file_size_mb: 150, max_pages_per_file: 2000, storage_limit_gb: 20, allows_watermark_removal: true, allows_batch_processing: true, allows_priority_processing: true }
+    ];
+    for (const plan of plans) {
+      await prisma.subscriptionPlan.upsert({ where: { plan_slug: plan.plan_slug }, update: {}, create: plan });
+    }
+  } catch(e) { console.error("Seeding error:", e); }
+  // -----------------------------
+
   app.listen(PORT, "0.0.0.0", async () => {
     await printStartupDashboard(PORT, mode);
   });

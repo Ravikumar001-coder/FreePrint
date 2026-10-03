@@ -108,9 +108,8 @@ export default function CostEstimator({
   const globalSheetsSaved = userStats?.total_paper_saved || 0;
   const displaySheetsSaved = globalSheetsSaved + currentSheetsSaved;
 
-  const gramsPulpSaved = displaySheetsSaved * 5;
-  const leavesSavedCount = parseFloat((displaySheetsSaved / 83.33).toFixed(2));
-  const gramsCo2Saved = displaySheetsSaved * 10;
+  const paperUseAvoided = displaySheetsSaved * 5;
+  const estimatedEmissionsPrevented = Math.round(displaySheetsSaved * (180 / 42));
 
   // Input states for Checkout Coupons
   const [couponInput, setCouponInput] = useState("");
@@ -336,23 +335,26 @@ export default function CostEstimator({
       <div className="bg-emerald-550/5 bg-emerald-500/5 rounded-2xl p-5 border border-emerald-500/10">
         <h3 className="text-xs font-extrabold text-emerald-800 flex items-center gap-1.5 mb-1">
           <Leaf size={14} fill="currentColor" className="text-emerald-500 shrink-0" />
-          Student Green-Print Environmental Scorecard
+          Student GreenPrint Environmental Scorecard
         </h3>
         <p className="text-[10px] text-emerald-600 mb-3.5 pl-5">Lifetime Total Savings (Including Current Layout)</p>
         <div className="grid grid-cols-3 gap-2 text-center">
           <div className="bg-white/80 p-3.5 rounded-xl border border-emerald-500/5">
             <span className="text-xs font-black font-mono text-emerald-700">{displaySheetsSaved}</span>
-            <span className="text-[9px] text-gray-500 block mt-1 uppercase font-semibold">Sheets of Paper Saved</span>
+            <span className="text-[9px] text-gray-500 block mt-1 uppercase font-semibold">Sheets Saved</span>
           </div>
           <div className="bg-white/80 p-3.5 rounded-xl border border-emerald-500/5">
-            <span className="text-xs font-black font-mono text-emerald-700">{gramsPulpSaved}g</span>
-            <span className="text-[9px] text-gray-500 block mt-1 uppercase font-semibold">Raw wood pulp offset</span>
+            <span className="text-xs font-black font-mono text-emerald-700">{paperUseAvoided}g</span>
+            <span className="text-[9px] text-gray-500 block mt-1 uppercase font-semibold">Paper Use Avoided</span>
           </div>
           <div className="bg-white/80 p-3.5 rounded-xl border border-emerald-500/5">
-            <span className="text-xs font-black font-mono text-emerald-700">{gramsCo2Saved}g</span>
-            <span className="text-[9px] text-gray-500 block mt-1 uppercase font-semibold">Manufacturing Carbon Offset</span>
+            <span className="text-xs font-black font-mono text-emerald-700">{estimatedEmissionsPrevented}g CO₂e</span>
+            <span className="text-[9px] text-gray-500 block mt-1 uppercase font-semibold">Estimated Emissions Prevented</span>
           </div>
         </div>
+        <p className="text-[9px] text-emerald-600/70 mt-3 text-center italic">
+          Based on standard A4 80 GSM paper and industry-average paper production emissions.
+        </p>
       </div>
     </div>
   );

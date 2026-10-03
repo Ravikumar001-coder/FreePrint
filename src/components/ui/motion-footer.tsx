@@ -213,7 +213,7 @@ MagneticButton.displayName = "MagneticButton";
 const MarqueeItem = () => (
   <div className="flex items-center space-x-12 px-6">
     <span>Smart PDF Imposition</span> <span className="text-primary/60">✦</span>
-    <span>AI Note Optimization</span> <span className="text-secondary/60">✦</span>
+    <span>Advanced Booklet Making</span> <span className="text-secondary/60">✦</span>
     <span>Seamless CloudConvert</span> <span className="text-primary/60">✦</span>
     <span>Rapid Document Merging</span> <span className="text-secondary/60">✦</span>
     <span>Absolute Privacy</span> <span className="text-primary/60">✦</span>
@@ -342,22 +342,21 @@ export function CinematicFooter() {
                   Impose PDFs
                 </MagneticButton>
                 
-                <MagneticButton as="a" href="#ai_notes_optimiser_panel" className="footer-glass-pill px-10 py-5 rounded-full text-foreground font-bold text-sm md:text-base flex items-center gap-3 group">
-                  <Sparkles className="w-6 h-6 text-muted-foreground group-hover:text-foreground transition-colors" />
-                  Optimize Notes
-                </MagneticButton>
+                
               </div>
 
-              {/* Secondary Text Links */}
-              <div className="flex flex-wrap justify-center gap-3 md:gap-6 w-full mt-2">
-                <MagneticButton as="a" href={links.link_privacy || "#"} className="footer-glass-pill px-6 py-3 rounded-full text-muted-foreground font-medium text-xs md:text-sm hover:text-foreground">
-                  Privacy Policy
+              {/* Platform Benefits */}
+              <div className="flex flex-col md:flex-row items-center justify-center gap-3 md:gap-4 w-full mt-4">
+                <MagneticButton as="div" className="text-gray-500 font-medium text-sm md:text-base cursor-default hover:text-gray-400 transition-colors px-4 py-2">
+                  100% Secure Processing
                 </MagneticButton>
-                <MagneticButton as="a" href={links.link_terms || "#"} className="footer-glass-pill px-6 py-3 rounded-full text-muted-foreground font-medium text-xs md:text-sm hover:text-foreground">
-                  Terms of Service
+                <span className="hidden md:inline text-gray-400">•</span>
+                <MagneticButton as="div" className="text-gray-500 font-medium text-sm md:text-base cursor-default hover:text-gray-400 transition-colors px-4 py-2">
+                  No Data Stored
                 </MagneticButton>
-                <MagneticButton as="a" href={links.link_support || "#"} className="footer-glass-pill px-6 py-3 rounded-full text-muted-foreground font-medium text-xs md:text-sm hover:text-foreground">
-                  Support
+                <span className="hidden md:inline text-gray-400">•</span>
+                <MagneticButton as="div" className="text-gray-500 font-medium text-sm md:text-base cursor-default hover:text-gray-400 transition-colors px-4 py-2">
+                  Lightning Fast
                 </MagneticButton>
               </div>
             </div>

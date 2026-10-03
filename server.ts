@@ -21,6 +21,9 @@ import express from "express";
 import path from "path";
 import fs from "fs";
 import dotenv from "dotenv";
+const isProduction = process.argv[1] && process.argv[1].endsWith('server.cjs');
+process.env.NODE_ENV = isProduction ? 'production' : 'development';
+dotenv.config();
 import { GoogleGenAI, Type } from "@google/genai";
 import { createServer as createViteServer } from "vite";
 import cors from "cors";
@@ -46,8 +49,7 @@ const prisma = globalThis.prismaGlobal ?? prismaClientSingleton();
 
 if (process.env.NODE_ENV !== 'production') globalThis.prismaGlobal = prisma;
 
-// Load environment variables
-dotenv.config();
+// Environment variables loaded at top of file
 
 const app = express();
 const PORT = 3000;

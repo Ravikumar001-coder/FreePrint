@@ -31,7 +31,7 @@ import { generateSheetLayout, createImposedPDF, parsePageSubset } from "./utils/
 import ControlPanel from "./components/ControlPanel";
 import PreviewGrid from "./components/PreviewGrid";
 import CostEstimator from "./components/CostEstimator";
-import AIPanel from "./components/AIPanel";
+
 import AdminPanel from "./components/AdminPanel";
 import AuthModal from "./components/AuthModal";
 import HistoryPanel from "./components/HistoryPanel";
@@ -826,17 +826,17 @@ export default function App() {
           ) : (
             <button onClick={() => setAuthModalOpen(true)} className="text-xs font-bold text-indigo-600 hover:text-indigo-800 cursor-pointer">Login</button>
           )}
-          <div className="flex items-center gap-2 px-3 py-1 bg-slate-100 rounded-full text-[10px] font-semibold text-slate-600 font-mono">
+          <button 
+            onClick={() => setIsPlanModalOpen(true)}
+            className="flex items-center gap-2 px-3 py-1 bg-slate-100 hover:bg-slate-200 transition-colors rounded-full text-[10px] font-semibold text-slate-600 font-mono cursor-pointer"
+          >
             Tier: <span className="text-indigo-600 font-bold">{(subscriptionPlans.find(p => p.id === currentPlanId)?.name || "Free").toUpperCase()}</span>
             {currentUser && (
-              <button 
-                onClick={() => setIsPlanModalOpen(true)}
-                className="ml-1 text-[9px] bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-1.5 py-0.5 rounded cursor-pointer uppercase tracking-wider font-bold transition-colors"
-              >
+              <span className="ml-1 text-[9px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded uppercase tracking-wider font-bold">
                 Change
-              </button>
+              </span>
             )}
-          </div>
+          </button>
           <button
             onClick={handleReset}
             className="flex items-center gap-1.5 text-xs text-slate-600 hover:text-slate-950 transition-all bg-slate-100 p-1.5 px-3 rounded-lg border border-slate-200 cursor-pointer text-[11px]"
@@ -884,13 +884,16 @@ export default function App() {
                  <span className="text-xs font-bold text-slate-600">Credits Remaining</span>
                  <span className="text-xs font-bold text-amber-700">⚡ {currentUser?.credit_balance || 0}</span>
               </div>
-              <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg">
+              <button 
+                onClick={() => {setIsMobileMenuOpen(false); setIsPlanModalOpen(true);}}
+                className="flex w-full justify-between items-center bg-slate-50 hover:bg-slate-100 transition-colors p-2.5 rounded-lg cursor-pointer"
+              >
                  <span className="text-xs font-bold text-slate-600">Current Plan</span>
                  <div className="flex items-center gap-2">
                    <span className="text-xs font-bold text-indigo-600">{(subscriptionPlans.find(p => p.id === currentPlanId)?.name || "Free").toUpperCase()}</span>
-                   <button onClick={() => {setIsMobileMenuOpen(false); setIsPlanModalOpen(true);}} className="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-1 rounded-md cursor-pointer font-bold">Change</button>
+                   <span className="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-1 rounded-md font-bold">Change</span>
                  </div>
-              </div>
+              </button>
               <div className="flex gap-2 mt-2">
                 <button
                   onClick={() => { setIsMobileMenuOpen(false); handleReset(); }}
@@ -989,13 +992,7 @@ export default function App() {
             <PdfPreview pdfFileBytes={pdfFileBytes} />
             <HistoryPanel authToken={authToken} />
 
-            {/* AI DECISION ENGINE WRAPPER */}
-            <AIPanel
-              pdfMetadata={pdfMetadata}
-              onSelectRecommendedPreset={(recommendedPreset) => {
-                handleApplyPreset(recommendedPreset);
-              }}
-            />
+
           </div>
 
           {/* --- RIGHT HAND SIDE: VISUAL PLATING & COST STATS (Col span 7/12) --- */}

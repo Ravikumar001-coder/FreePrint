@@ -147,14 +147,24 @@ const MagneticButton = React.forwardRef<HTMLElement, MagneticButtonProps>(
       const element = localRef.current;
       if (!element) return;
 
-      const ctx = gsap.context(() => {
-        const handleMouseMove = (e: MouseEvent) => {
-          const rect = element.getBoundingClientRect();
-          const h = rect.width / 2;
-          const w = rect.height / 2;
-          const x = e.clientX - rect.left - h;
-          const y = e.clientY - rect.top - w;
+      // Cache element rect to avoid recomputing on every mouse move.
+      const rect = { w: 0, h: 0, left: 0, top: 0 };
+      const updateRect = () => {
+        const bounds = element.getBoundingClientRect();
+        rect.w = bounds.width / 2;
+        rect.h = bounds.height / 2;
+        rect.left = bounds.left;
+        rect.top = bounds.top;
+      };
+      updateRect();
+      window.addEventListener("resize", updateRect);
 
+      let rafId: number | undefined;
+      const handleMouseMove = (e: MouseEvent) => {
+        const x = e.clientX - rect.left - rect.w;
+        const y = e.clientY - rect.top - rect.h;
+        if (rafId) cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(() => {
           gsap.to(element, {
             x: x * 0.4,
             y: y * 0.4,
@@ -162,33 +172,32 @@ const MagneticButton = React.forwardRef<HTMLElement, MagneticButtonProps>(
             rotationY: x * 0.15,
             scale: 1.05,
             ease: "power2.out",
-            duration: 0.4,
+            duration: 0.2,
           });
-        };
+        });
+      };
+      const handleMouseLeave = () => {
+        if (rafId) cancelAnimationFrame(rafId);
+        gsap.to(element, {
+          x: 0,
+          y: 0,
+          rotationX: 0,
+          rotationY: 0,
+          scale: 1,
+          ease: "elastic.out(1, 0.3)",
+          duration: 0.8,
+        });
+      };
+      element.addEventListener("mousemove", handleMouseMove as any);
+      element.addEventListener("mouseleave", handleMouseLeave);
 
-        const handleMouseLeave = () => {
-          gsap.to(element, {
-            x: 0,
-            y: 0,
-            rotationX: 0,
-            rotationY: 0,
-            scale: 1,
-            ease: "elastic.out(1, 0.3)",
-            duration: 1.2,
-          });
-        };
-
-        element.addEventListener("mousemove", handleMouseMove as any);
-        element.addEventListener("mouseleave", handleMouseLeave);
-
-        return () => {
-          element.removeEventListener("mousemove", handleMouseMove as any);
-          element.removeEventListener("mouseleave", handleMouseLeave);
-        };
-      }, element);
-
-      return () => ctx.revert();
-    },[]);
+      return () => {
+        element.removeEventListener("mousemove", handleMouseMove as any);
+        element.removeEventListener("mouseleave", handleMouseLeave);
+        window.removeEventListener("resize", updateRect);
+        if (rafId) cancelAnimationFrame(rafId);
+      };
+    }, []);
 
     return (
       <Component
